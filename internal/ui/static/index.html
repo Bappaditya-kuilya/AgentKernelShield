@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>aks</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161c26;
+      --raised:    #1c2333;
+      --border:    #21293b;
+      --text:      #cdd6f4;
+      --muted:     #6b7a99;
+      --red:       #f38ba8;
+      --red-dim:   #3d1a24;
+      --green:     #a6e3a1;
+      --green-dim: #1a3020;
+      --blue:      #89b4fa;
+      --orange:    #fab387;
+      --purple:    #cba6f7;
+      --yellow:    #f9e2af;
+      --cyan:      #89dceb;
+      --cyan-dim:  #0d2a30;
+      --radius:    6px;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      font-size: 13px;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-shrink: 0;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: var(--text);
+    }
+
+    .logo-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .logo-dot.offline { background: var(--muted); box-shadow: none; animation: none; }
+
+    .profile-badge {
+      background: var(--raised);
+      border: 1px solid var(--border);
+      color: var(--blue);
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+    }
+
+    .version-badge {
+      background: var(--raised);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+    }
+
+    .stats {
+      margin-left: auto;
+      display: flex;
+      gap: 20px;
+      align-items: center;
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+    }
+
+    .stat-value {
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .stat-label {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+
+    .stat-value.total  { color: var(--text); }
+    .stat-value.blocks { color: var(--red); }
+    .stat-value.allows { color: var(--green); }
+
+    .conn-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--muted);
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+    }
+
+    .conn-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+
+    .conn-dot.offline { background: var(--red); }
+
+    /* ── Tab bar ── */
+    .tab-bar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      display: flex;
+      flex-shrink: 0;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--muted);
+      padding: 10px 16px;
+      cursor: pointer;
+      font-size: 12px;
+      font-family: inherit;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      transition: color 0.1s, border-color 0.1s;
+      margin-bottom: -1px;
+    }
+
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--text); border-bottom-color: var(--blue); }
+
+    /* blocked tab button gets red accent when there are blocks */
+    .tab-btn.has-blocks { border-bottom-color: var(--red); color: var(--red); }
+
+    /* ── Tab content panels ── */
+    .tab-panel { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+    .tab-panel.active { display: flex; }
+
+    /* ── Toolbar ── */
+    .toolbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .filter-group { display: flex; gap: 4px; }
+
+    .filter-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 11px;
+      font-family: inherit;
+      letter-spacing: 0.5px;
+      transition: all 0.1s;
+    }
+
+    .filter-btn:hover { border-color: var(--muted); color: var(--text); }
+    .filter-btn.active { color: var(--text); border-color: var(--text); background: var(--raised); }
+    .filter-btn.action-block.active { color: var(--red);    border-color: var(--red); }
+    .filter-btn.action-allow.active { color: var(--green);  border-color: var(--green); }
+    .filter-btn.type-file.active    { color: var(--blue);   border-color: var(--blue); }
+    .filter-btn.type-exec.active    { color: var(--orange); border-color: var(--orange); }
+    .filter-btn.type-net.active     { color: var(--purple); border-color: var(--purple); }
+    .filter-btn.type-ssl.active     { color: var(--cyan);   border-color: var(--cyan); }
+
+    .divider { width: 1px; background: var(--border); align-self: stretch; margin: 0 4px; }
+
+    .clear-btn {
+      margin-left: auto;
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 4px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 11px;
+      font-family: inherit;
+      transition: all 0.1s;
+    }
+    .clear-btn:hover { border-color: var(--red); color: var(--red); }
+
+    /* ── Event table ── */
+    .table-container { flex: 1; overflow-y: auto; }
+
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+
+    thead {
+      position: sticky;
+      top: 0;
+      background: var(--raised);
+      z-index: 10;
+    }
+
+    th {
+      padding: 8px 12px;
+      text-align: left;
+      font-size: 10px;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      font-weight: 500;
+    }
+
+    th.col-time    { width: 70px; }
+    th.col-pid     { width: 60px; }
+    th.col-process { width: 120px; }
+    th.col-type    { width: 70px; }
+    th.col-detail  { }
+    th.col-action  { width: 75px; text-align: right; }
+
+    td {
+      padding: 6px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    tr.row-block {
+      border-left: 3px solid var(--red);
+      background: var(--red-dim);
+      cursor: pointer;
+    }
+    tr.row-block:hover { background: #4a1f2c; }
+
+    tr.row-allow { border-left: 3px solid transparent; cursor: pointer; }
+    tr.row-allow:hover { background: var(--raised); }
+
+    tr.row-selected { outline: 1px solid var(--blue); }
+
+    .time-cell    { color: var(--muted); font-size: 11px; }
+    .pid-cell     { color: var(--muted); font-size: 11px; }
+    .process-cell { color: var(--yellow); font-weight: 500; }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .badge-file { background: #1a2a3a; color: var(--blue); }
+    .badge-exec { background: #2a1f10; color: var(--orange); }
+    .badge-net  { background: #1f1a2a; color: var(--purple); }
+    .badge-ssl  { background: var(--cyan-dim); color: var(--cyan); }
+
+    .detail-cell { color: var(--text); font-size: 12px; }
+    .detail-cell .dest { color: var(--purple); }
+    .detail-cell .ssl-preview { color: var(--cyan); font-size: 11px; }
+    .detail-cell .ssl-dir { color: var(--muted); margin-right: 6px; }
+
+    .action-cell { text-align: right; }
+
+    .action-block {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 3px;
+      background: var(--red-dim);
+      color: var(--red);
+      border: 1px solid var(--red);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .action-allow {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 3px;
+      color: var(--green);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── Empty state ── */
+    .empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      color: var(--muted);
+      gap: 12px;
+    }
+
+    .empty-icon { font-size: 32px; opacity: 0.4; }
+    .empty-text { font-size: 13px; }
+
+    /* ── Blocked tab ── */
+    .blocked-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .blocked-proc {
+      border: 1px solid var(--red);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    @keyframes flash-new {
+      0%   { background: #5a2030; }
+      100% { background: var(--red-dim); }
+    }
+
+    .blocked-proc.flash { animation: flash-new 0.6s ease-out; }
+
+    .blocked-proc-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--red-dim);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .blocked-proc-header:hover { background: #4a1f2c; }
+
+    .blocked-proc-pid {
+      background: var(--raised);
+      border: 1px solid var(--red);
+      color: var(--red);
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+    }
+
+    .blocked-proc-comm {
+      color: var(--yellow);
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    .blocked-proc-ppid {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .blocked-proc-badge {
+      margin-left: auto;
+      background: var(--red);
+      color: var(--bg);
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .blocked-proc-hint {
+      font-size: 10px;
+      color: var(--muted);
+      margin-left: 4px;
+    }
+
+    .blocked-events {
+      border-top: 1px solid var(--border);
+    }
+
+    .blocked-event {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+    }
+
+    .blocked-event:last-child { border-bottom: none; }
+
+    .blocked-event-time { color: var(--muted); font-size: 11px; width: 50px; flex-shrink: 0; }
+    .blocked-event-detail { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+    .blocked-event-reason { color: var(--muted); font-size: 11px; flex-shrink: 0; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot" id="liveDot"></div>
+    aks
+  </div>
+  <div class="profile-badge" id="profileBadge">loading…</div>
+  <div class="version-badge" id="versionBadge"></div>
+  <div class="stats">
+    <div class="stat"><span class="stat-value total"  id="statTotal">0</span><span class="stat-label">total</span></div>
+    <div class="stat"><span class="stat-value blocks" id="statBlocked">0</span><span class="stat-label">blocked</span></div>
+    <div class="stat"><span class="stat-value allows" id="statAllowed">0</span><span class="stat-label">allowed</span></div>
+  </div>
+  <div class="conn-status">
+    <div class="conn-dot" id="connDot"></div>
+    <span id="connLabel">connecting</span>
+  </div>
+</header>
+
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="log">Log</button>
+  <button class="tab-btn" data-tab="blocked" id="blockedTabBtn">Blocked</button>
+</div>
+
+<!-- ── LOG TAB ── -->
+<div class="tab-panel active" id="panel-log">
+  <div class="toolbar">
+    <div class="filter-group">
+      <button class="filter-btn active" data-filter="action" data-value="all">ALL</button>
+      <button class="filter-btn action-block" data-filter="action" data-value="BLOCK">BLOCK</button>
+      <button class="filter-btn action-allow" data-filter="action" data-value="ALLOW">ALLOW</button>
+    </div>
+    <div class="divider"></div>
+    <div class="filter-group">
+      <button class="filter-btn type-file" data-filter="type" data-value="file_open">FILE</button>
+      <button class="filter-btn type-exec" data-filter="type" data-value="exec">EXEC</button>
+      <button class="filter-btn type-net"  data-filter="type" data-value="net_connect">NET</button>
+      <button class="filter-btn type-ssl"  data-filter="type" data-value="ssl_data">SSL</button>
+    </div>
+    <span id="pidFilterLabel" style="display:none; font-size:11px; color:var(--muted); margin-left:8px;"></span>
+    <button id="clearPidFilter" style="display:none; font-size:11px; color:var(--muted); background:none; border:none; cursor:pointer; padding:2px 6px;">✕ clear pid filter</button>
+    <button class="clear-btn" id="clearBtn">clear</button>
+  </div>
+
+  <div class="table-container" id="tableContainer">
+    <div class="empty" id="emptyState">
+      <div class="empty-icon">◈</div>
+      <div class="empty-text">waiting for events…</div>
+    </div>
+    <table id="eventsTable" style="display:none">
+      <thead>
+        <tr>
+          <th class="col-time">time</th>
+          <th class="col-pid">pid</th>
+          <th class="col-process">process</th>
+          <th class="col-type">type</th>
+          <th class="col-detail">detail</th>
+          <th class="col-action">action</th>
+        </tr>
+      </thead>
+      <tbody id="eventsBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── BLOCKED TAB ── -->
+<div class="tab-panel" id="panel-blocked">
+  <div class="empty" id="blockedEmpty">
+    <div class="empty-icon">◈</div>
+    <div class="empty-text">no blocked events yet</div>
+  </div>
+  <div class="blocked-container" id="blockedContainer" style="display:none"></div>
+</div>
+
+<script>
+  const MAX_ROWS = 500;
+
+  const state = {
+    events:      [],
+    processes:   new Map(), // pid → {pid, ppid, comm, blockedEvents:[]}
+    total:       0,
+    blocked:     0,
+    allowed:     0,
+    filterAction: 'all',
+    filterType:   null,
+    filterPid:    null,
+    activeTab:    'log',
+  };
+
+  // ── DOM refs ───────────────────────────────────────────────────────────────
+  const liveDot        = document.getElementById('liveDot');
+  const profileBadge   = document.getElementById('profileBadge');
+  const versionBadge   = document.getElementById('versionBadge');
+  const connDot        = document.getElementById('connDot');
+  const connLabel      = document.getElementById('connLabel');
+  const statTotal      = document.getElementById('statTotal');
+  const statBlocked    = document.getElementById('statBlocked');
+  const statAllowed    = document.getElementById('statAllowed');
+  const eventsTable    = document.getElementById('eventsTable');
+  const eventsBody     = document.getElementById('eventsBody');
+  const emptyState     = document.getElementById('emptyState');
+  const clearBtn       = document.getElementById('clearBtn');
+  const blockedTabBtn  = document.getElementById('blockedTabBtn');
+  const blockedEmpty   = document.getElementById('blockedEmpty');
+  const blockedContainer = document.getElementById('blockedContainer');
+  const pidFilterLabel = document.getElementById('pidFilterLabel');
+  const clearPidFilter = document.getElementById('clearPidFilter');
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  function relTime(isoStr) {
+    const diff = Math.floor((Date.now() - new Date(isoStr)) / 1000);
+    if (diff < 5)    return 'just now';
+    if (diff < 60)   return diff + 's';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm';
+    return Math.floor(diff / 3600) + 'h';
+  }
+
+  setInterval(() => {
+    document.querySelectorAll('[data-ts]').forEach(el => {
+      el.textContent = relTime(el.dataset.ts);
+    });
+  }, 5000);
+
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function typeBadge(evt) {
+    const map = {
+      file_open:   ['FILE', 'badge-file'],
+      exec:        ['EXEC', 'badge-exec'],
+      net_connect: ['NET',  'badge-net'],
+      ssl_data:    ['SSL',  'badge-ssl'],
+    };
+    const [label, cls] = map[evt.event] || [evt.event, ''];
+    return `<span class="badge ${cls}">${label}</span>`;
+  }
+
+  function detail(evt) {
+    if (evt.event === 'net_connect') {
+      return `<span class="dest">${escHtml(evt.dest_ip || '')}:${escHtml(String(evt.dest_port || ''))}</span>`;
+    }
+    if (evt.event === 'ssl_data') {
+      const dir     = evt.ssl_dir || '';
+      const preview = (evt.ssl_data || '').slice(0, 120);
+      return `<span class="ssl-dir">[${escHtml(dir)}]</span><span class="ssl-preview">${escHtml(preview)}</span>`;
+    }
+    return escHtml(evt.path || '');
+  }
+
+  function eventDetail(evt) {
+    if (evt.event === 'net_connect') return (evt.dest_ip || '') + ':' + (evt.dest_port || '');
+    if (evt.event === 'ssl_data')    return '[' + (evt.ssl_dir || '') + '] ' + (evt.ssl_data || '').slice(0, 100);
+    return evt.path || '';
+  }
+
+  // ── Log tab ────────────────────────────────────────────────────────────────
+  function makeRow(evt) {
+    const isBlock = evt.action === 'BLOCK';
+    const tr = document.createElement('tr');
+    tr.className = isBlock ? 'row-block' : 'row-allow';
+    tr.dataset.action = evt.action;
+    tr.dataset.event  = evt.event;
+    tr.dataset.pid    = evt.pid;
+    tr.title = evt.reason || '';
+
+    tr.innerHTML = `
+      <td class="time-cell" data-ts="${escHtml(evt.ts)}">${relTime(evt.ts)}</td>
+      <td class="pid-cell">${escHtml(String(evt.pid))}</td>
+      <td class="process-cell">${escHtml(evt.comm)}</td>
+      <td>${typeBadge(evt)}</td>
+      <td class="detail-cell">${detail(evt)}</td>
+      <td class="action-cell">
+        ${isBlock
+          ? `<span class="action-block">BLOCK</span>`
+          : `<span class="action-allow">ALLOW</span>`}
+      </td>`;
+
+    // Click: if blocked, jump to Blocked tab for this PID;
+    // otherwise filter log to this PID
+    tr.addEventListener('click', () => {
+      if (isBlock && state.processes.has(evt.pid) && state.processes.get(evt.pid).blockedEvents.length > 0) {
+        switchTab('blocked');
+        // scroll to card
+        requestAnimationFrame(() => {
+          const card = document.getElementById('bproc-' + evt.pid);
+          if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+      } else {
+        setPidFilter(evt.pid, evt.comm);
+      }
+    });
+
+    return tr;
+  }
+
+  function rowVisible(tr) {
+    if (state.filterAction !== 'all' && tr.dataset.action !== state.filterAction) return false;
+    if (state.filterType && tr.dataset.event !== state.filterType) return false;
+    if (state.filterPid !== null && Number(tr.dataset.pid) !== state.filterPid) return false;
+    return true;
+  }
+
+  function applyFilters() {
+    let visible = 0;
+    eventsBody.querySelectorAll('tr').forEach(tr => {
+      const show = rowVisible(tr);
+      tr.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+    emptyState.style.display  = visible === 0 ? 'flex' : 'none';
+    eventsTable.style.display = visible === 0 ? 'none' : '';
+  }
+
+  function setPidFilter(pid, comm) {
+    state.filterPid = pid;
+    pidFilterLabel.textContent = 'pid ' + pid + ' (' + comm + ')';
+    pidFilterLabel.style.display = 'inline';
+    clearPidFilter.style.display = 'inline';
+    applyFilters();
+    switchTab('log');
+  }
+
+  clearPidFilter.addEventListener('click', () => {
+    state.filterPid = null;
+    pidFilterLabel.style.display = 'none';
+    clearPidFilter.style.display = 'none';
+    applyFilters();
+  });
+
+  // ── Blocked tab ────────────────────────────────────────────────────────────
+  function renderBlocked() {
+    const blockedProcs = [...state.processes.values()]
+      .filter(p => p.blockedEvents.length > 0)
+      .sort((a, b) => {
+        const at = new Date(a.blockedEvents[0].ts).getTime();
+        const bt = new Date(b.blockedEvents[0].ts).getTime();
+        return bt - at; // most recent first
+      });
+
+    if (blockedProcs.length === 0) {
+      blockedEmpty.style.display    = 'flex';
+      blockedContainer.style.display = 'none';
+      return;
+    }
+
+    blockedEmpty.style.display    = 'none';
+    blockedContainer.style.display = 'flex';
+
+    // Update or create cards (avoid full re-render)
+    blockedProcs.forEach(proc => {
+      let card = document.getElementById('bproc-' + proc.pid);
+      if (!card) {
+        card = document.createElement('div');
+        card.className = 'blocked-proc';
+        card.id = 'bproc-' + proc.pid;
+        blockedContainer.prepend(card);
+      }
+
+      // Parent info
+      let ppidStr = '';
+      if (proc.ppid) {
+        const parent = state.processes.get(proc.ppid);
+        ppidStr = parent
+          ? `← <span class="blocked-proc-ppid">${proc.ppid} (${escHtml(parent.comm)})</span>`
+          : `← <span class="blocked-proc-ppid">${proc.ppid}</span>`;
+      }
+
+      card.innerHTML = `
+        <div class="blocked-proc-header" data-pid="${proc.pid}">
+          <span class="blocked-proc-pid">${proc.pid}</span>
+          <span class="blocked-proc-comm">${escHtml(proc.comm)}</span>
+          ${ppidStr}
+          <span class="blocked-proc-badge">${proc.blockedEvents.length} BLOCKED</span>
+          <span class="blocked-proc-hint">click to filter log</span>
+        </div>
+        <div class="blocked-events">
+          ${proc.blockedEvents.map(evt => `
+            <div class="blocked-event">
+              <span class="blocked-event-time" data-ts="${escHtml(evt.ts)}">${relTime(evt.ts)}</span>
+              ${typeBadge(evt)}
+              <span class="blocked-event-detail">${escHtml(eventDetail(evt))}</span>
+              <span class="blocked-event-reason">${escHtml(evt.reason || '')}</span>
+            </div>
+          `).join('')}
+        </div>`;
+
+      // Click header → filter log to this PID
+      card.querySelector('.blocked-proc-header').addEventListener('click', () => {
+        setPidFilter(proc.pid, proc.comm);
+      });
+    });
+
+    // Remove cards for PIDs that no longer exist (e.g. after clear)
+    blockedContainer.querySelectorAll('.blocked-proc').forEach(card => {
+      const pid = Number(card.id.replace('bproc-', ''));
+      if (!state.processes.has(pid) || state.processes.get(pid).blockedEvents.length === 0) {
+        card.remove();
+      }
+    });
+  }
+
+  // ── Add event ──────────────────────────────────────────────────────────────
+  function addEvent(evt) {
+    state.total++;
+    if (evt.action === 'BLOCK') state.blocked++; else state.allowed++;
+    statTotal.textContent   = state.total;
+    statBlocked.textContent = state.blocked;
+    statAllowed.textContent = state.allowed;
+
+    state.events.unshift(evt);
+    if (state.events.length > MAX_ROWS) state.events.pop();
+
+    // Update process map
+    const pid = evt.pid;
+    if (!state.processes.has(pid)) {
+      state.processes.set(pid, { pid, ppid: evt.ppid || 0, comm: evt.comm, blockedEvents: [] });
+    }
+    const proc = state.processes.get(pid);
+    if (evt.action === 'BLOCK') {
+      proc.blockedEvents.unshift(evt);
+
+      // Flash the Blocked tab button
+      blockedTabBtn.classList.add('has-blocks');
+
+      // If Blocked tab is active, update it and flash the card
+      if (state.activeTab === 'blocked') {
+        renderBlocked();
+        const card = document.getElementById('bproc-' + pid);
+        if (card) {
+          card.classList.remove('flash');
+          void card.offsetWidth; // reflow to restart animation
+          card.classList.add('flash');
+        }
+      }
+    }
+
+    // Log tab: insert row
+    const tr = makeRow(evt);
+    eventsBody.insertBefore(tr, eventsBody.firstChild);
+    while (eventsBody.children.length > MAX_ROWS) {
+      eventsBody.removeChild(eventsBody.lastChild);
+    }
+    if (rowVisible(tr)) {
+      emptyState.style.display  = 'none';
+      eventsTable.style.display = '';
+    } else {
+      tr.style.display = 'none';
+    }
+  }
+
+  // ── Tab switching ──────────────────────────────────────────────────────────
+  function switchTab(tab) {
+    state.activeTab = tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + tab).classList.add('active');
+    if (tab === 'blocked') renderBlocked();
+  }
+
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+
+  // ── Log filters ────────────────────────────────────────────────────────────
+  document.querySelectorAll('[data-filter="action"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-filter="action"]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.filterAction = btn.dataset.value;
+      applyFilters();
+    });
+  });
+
+  document.querySelectorAll('[data-filter="type"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const val = btn.dataset.value;
+      if (state.filterType === val) {
+        btn.classList.remove('active');
+        state.filterType = null;
+      } else {
+        document.querySelectorAll('[data-filter="type"]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.filterType = val;
+      }
+      applyFilters();
+    });
+  });
+
+  clearBtn.addEventListener('click', () => {
+    eventsBody.innerHTML = '';
+    blockedContainer.innerHTML = '';
+    state.events = [];
+    state.processes.clear();
+    state.total = state.blocked = state.allowed = 0;
+    statTotal.textContent = statBlocked.textContent = statAllowed.textContent = 0;
+    emptyState.style.display    = 'flex';
+    eventsTable.style.display   = 'none';
+    blockedEmpty.style.display    = 'flex';
+    blockedContainer.style.display = 'none';
+    blockedTabBtn.classList.remove('has-blocks');
+    state.filterPid = null;
+    pidFilterLabel.style.display = 'none';
+    clearPidFilter.style.display = 'none';
+  });
+
+  // ── SSE connection ─────────────────────────────────────────────────────────
+  function connect() {
+    const base = new URL('.', window.location.href).href;
+    const src  = new EventSource(new URL('events', base).href);
+
+    src.addEventListener('connected', () => {
+      connDot.classList.remove('offline');
+      connLabel.textContent = 'live';
+      liveDot.classList.remove('offline');
+    });
+
+    src.onmessage = e => {
+      try { addEvent(JSON.parse(e.data)); } catch (_) {}
+    };
+
+    src.onerror = () => {
+      connDot.classList.add('offline');
+      connLabel.textContent = 'reconnecting';
+      liveDot.classList.add('offline');
+    };
+  }
+
+  async function loadStatus() {
+    try {
+      const base = new URL('.', window.location.href).href;
+      const r = await fetch(new URL('api/status', base).href);
+      const d = await r.json();
+      profileBadge.textContent = d.profile || 'unknown';
+      if (d.version) versionBadge.textContent = d.version;
+    } catch (_) {
+      profileBadge.textContent = 'unknown';
+    }
+  }
+
+  loadStatus();
+  connect();
+</script>
+</body>
+</html>

@@ -1,0 +1,137 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and publish release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      - name: Install eBPF build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y clang llvm libbpf-dev linux-headers-$(uname -r) \
+            linux-tools-$(uname -r) linux-tools-common build-essential libelf-dev zlib1g-dev
+
+      - name: Install bpftool
+        run: |
+          BPFTOOL_BIN=$(find /usr/lib/linux-tools -maxdepth 3 \
+            -name bpftool -executable 2>/dev/null | head -1)
+
+          if [ -z "$BPFTOOL_BIN" ]; then
+            echo "bpftool ELF not found — building from source..."
+            sudo apt-get install -y git
+            git clone --depth 1 --recurse-submodules --shallow-submodules \
+              --branch v7.4.0 \
+              https://github.com/libbpf/bpftool.git /tmp/bpftool-src
+            make -C /tmp/bpftool-src/src -j$(nproc)
+            sudo make -C /tmp/bpftool-src/src install
+            BPFTOOL_BIN=$(which bpftool 2>/dev/null || echo /usr/local/sbin/bpftool)
+          fi
+
+          sudo ln -sf "$BPFTOOL_BIN" /usr/local/bin/bpftool
+          /usr/local/bin/bpftool --version
+
+      - name: Generate vmlinux.h
+        run: /usr/local/bin/bpftool btf dump file /sys/kernel/btf/vmlinux format c > bpf/vmlinux.h
+
+      - name: Build eBPF programs
+        run: |
+          ARCH=$(uname -m | sed 's/x86_64/x86/' | sed 's/aarch64/arm64/')
+          clang -g -O2 -target bpf -D__TARGET_ARCH_${ARCH} \
+            -I./bpf/headers \
+            -I/usr/include/$(uname -m)-linux-gnu \
+            -include asm/types.h \
+            -c bpf/probe.c -o bpf/probe.bpf.o
+          clang -g -O2 -target bpf -D__TARGET_ARCH_${ARCH} \
+            -I./bpf/headers \
+            -I/usr/include/$(uname -m)-linux-gnu \
+            -include asm/types.h \
+            -c bpf/lsm.c -o bpf/lsm.bpf.o
+          /usr/local/bin/bpftool gen object bpf/aks.bpf.o bpf/probe.bpf.o bpf/lsm.bpf.o
+
+      - name: Build aks binary (amd64)
+        run: GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=${{ github.ref_name }}" -o aks-linux-amd64 ./cmd/aks
+
+      - name: Build aks binary (arm64)
+        run: GOOS=linux GOARCH=arm64 go build -ldflags "-X main.version=${{ github.ref_name }}" -o aks-linux-arm64 ./cmd/aks
+
+      - name: Package release tarball
+        run: |
+          TAG=${{ github.ref_name }}
+          mkdir -p release/aks-${TAG}
+          cp aks-linux-amd64 release/aks-${TAG}/aks
+          cp bpf/aks.bpf.o release/aks-${TAG}/aks.bpf.o
+          cp -r profiles release/aks-${TAG}/profiles
+          cp install.sh release/aks-${TAG}/install.sh
+          chmod +x release/aks-${TAG}/install.sh
+          tar -czf aks-${TAG}-linux-amd64.tar.gz -C release aks-${TAG}
+          echo "TARBALL=aks-${TAG}-linux-amd64.tar.gz" >> $GITHUB_ENV
+          echo "TAG=${TAG}" >> $GITHUB_ENV
+
+      - name: Generate release notes from git log
+        id: notes
+        run: |
+          # Find the previous tag to compute the range
+          PREV=$(git tag --sort=-version:refname | grep -v "^${{ github.ref_name }}$" | head -1)
+          if [ -n "$PREV" ]; then
+            RANGE="${PREV}..${{ github.ref_name }}"
+          else
+            RANGE="${{ github.ref_name }}"
+          fi
+
+          # Build a human-readable changelog from commit messages
+          COMMITS=$(git log "$RANGE" --no-merges --pretty=format:"- %s" 2>/dev/null || echo "")
+          echo "PREV_TAG=${PREV}" >> $GITHUB_ENV
+
+          # Write notes to a temp file to avoid quoting issues
+          cat > /tmp/release-notes.md << NOTES
+          ## What's new
+
+          ${COMMITS}
+
+          ## Install
+
+          \`\`\`bash
+          curl -fsSL https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/install.sh | sudo bash
+          \`\`\`
+
+          Or download the tarball and run \`sudo ./install.sh\` manually.
+
+          ## What's included
+
+          - \`aks\` — daemon binary (amd64 and arm64)
+          - \`aks.bpf.o\` — eBPF object (CO-RE, runs on any kernel ≥ 5.15 with BTF)
+          - \`profiles/\` — built-in profiles: claude-code, gemini-cli, ollama
+
+          ## Requirements
+
+          - Linux x86_64 or arm64, kernel ≥ 5.15 with \`CONFIG_BPF_LSM=y\`
+          - \`lsm=bpf\` in kernel boot parameters
+          NOTES
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: aks ${{ github.ref_name }}
+          body_path: /tmp/release-notes.md
+          generate_release_notes: false
+          files: |
+            ${{ env.TARBALL }}
+            aks-linux-amd64
+            aks-linux-arm64
+            bpf/aks.bpf.o
+            install.sh

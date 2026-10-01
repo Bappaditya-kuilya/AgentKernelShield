@@ -1,0 +1,37 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - errcheck      # unchecked errors
+    - govet         # go vet checks (shadow, printf, etc.)
+    - staticcheck   # comprehensive static analysis (SA*, S*, QF*)
+    - unused        # unused code
+    - misspell      # common spelling mistakes in comments/strings
+    - unconvert     # unnecessary type conversions
+    - ineffassign   # assignments whose value is never used
+  settings:
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment  # struct field ordering optimisation — informational only
+  exclusions:
+    paths:
+      - vendor
+    rules:
+      # The loader stub exists only to satisfy the macOS build; its single-line
+      # functions intentionally skip error handling (ErrNotLinux is always returned).
+      - path: loader_stub\.go
+        linters: [errcheck, unused]
+      # fmt.Fprintf/Fprintln writes to stdout/stderr/ResponseWriter never need
+      # error checking — failures are unactionable in a CLI or HTTP handler.
+      - linters: [errcheck]
+        text: "^Error return value of `fmt\\.F"
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    paths:
+      - vendor

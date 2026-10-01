@@ -1,0 +1,26 @@
+# Binary (root-level only)
+/aks
+
+# eBPF build artifacts
+bpf/*.o
+bpf/vmlinux.h
+
+# Go
+*.test
+/vendor/
+
+# Test artifacts
+test/e2e/target/target
+
+# Editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.backup
+coder/coder-template/terraform.tfvars

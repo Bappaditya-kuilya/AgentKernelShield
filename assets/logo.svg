@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 330 160">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0d1424"/>
+      <stop offset="100%" stop-color="#0a0f1c"/>
+    </linearGradient>
+    <linearGradient id="railGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#a5b4fc" stop-opacity="0.6"/>
+      <stop offset="50%"  stop-color="#818cf8"/>
+      <stop offset="100%" stop-color="#a5b4fc" stop-opacity="0.6"/>
+    </linearGradient>
+    <linearGradient id="wordGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"   stop-color="#e0e7ff"/>
+      <stop offset="100%" stop-color="#c7d2fe"/>
+    </linearGradient>
+    <radialGradient id="centerPulse" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#6366f1" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#6366f1" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="halo" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="10"/>
+    </filter>
+    <filter id="textGlow" x="-10%" y="-30%" width="120%" height="160%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="330" height="160" rx="18" fill="url(#bg)"/>
+
+  <!-- Subtle border -->
+  <rect width="330" height="160" rx="18" fill="none" stroke="#6366f1" stroke-width="0.8" stroke-opacity="0.2"/>
+
+  <!-- === ICON (left, centered at x=96 y=80) === -->
+
+  <!-- Ambient halo behind icon -->
+  <ellipse cx="96" cy="80" rx="52" ry="52" fill="url(#centerPulse)" filter="url(#halo)"/>
+
+  <!-- Left guardrail — elegant inward curve -->
+  <path d="M 54 22 C 34 42 34 118 54 138"
+        fill="none" stroke="url(#railGrad)" stroke-width="2.8" stroke-linecap="round" filter="url(#glow)"/>
+
+  <!-- Right guardrail — mirror -->
+  <path d="M 138 22 C 158 42 158 118 138 138"
+        fill="none" stroke="url(#railGrad)" stroke-width="2.8" stroke-linecap="round" filter="url(#glow)"/>
+
+  <!-- Rungs between rails (dashed crossbars — the guardrail grid) -->
+  <line x1="57"  y1="44"  x2="135" y2="44"  stroke="#6366f1" stroke-width="0.9" stroke-opacity="0.35" stroke-dasharray="5 3.5"/>
+  <line x1="47"  y1="80"  x2="145" y2="80"  stroke="#818cf8" stroke-width="0.9" stroke-opacity="0.55" stroke-dasharray="5 3.5"/>
+  <line x1="57"  y1="116" x2="135" y2="116" stroke="#6366f1" stroke-width="0.9" stroke-opacity="0.35" stroke-dasharray="5 3.5"/>
+
+  <!-- Node dots on rails -->
+  <circle cx="45"  cy="80" r="3.5" fill="#818cf8" filter="url(#glow)"/>
+  <circle cx="147" cy="80" r="3.5" fill="#818cf8" filter="url(#glow)"/>
+  <circle cx="52"  cy="44" r="2"   fill="#a5b4fc" fill-opacity="0.6"/>
+  <circle cx="140" cy="44" r="2"   fill="#a5b4fc" fill-opacity="0.6"/>
+  <circle cx="52"  cy="116" r="2"  fill="#a5b4fc" fill-opacity="0.6"/>
+  <circle cx="140" cy="116" r="2"  fill="#a5b4fc" fill-opacity="0.6"/>
+
+  <!-- Central shield / badge -->
+  <!-- Outer ring -->
+  <circle cx="96" cy="80" r="22" fill="#0d1424" stroke="#818cf8" stroke-width="1.5" stroke-opacity="0.7" filter="url(#glow)"/>
+  <!-- Soft fill -->
+  <circle cx="96" cy="80" r="19" fill="#6366f1" fill-opacity="0.12"/>
+  <!-- Inner V-mark (guardrail motif, also initial of aks) -->
+  <polyline points="84,70 96,94 108,70"
+            fill="none" stroke="#a5b4fc" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
+            filter="url(#glow)"/>
+
+  <!-- Divider -->
+  <line x1="178" y1="28" x2="178" y2="132" stroke="#6366f1" stroke-width="0.8" stroke-opacity="0.25"/>
+
+  <!-- === TEXT === -->
+
+  <!-- "aks" — right-anchored so it always hugs the canvas edge -->
+  <text x="316" y="105"
+        text-anchor="end"
+        font-family="'Helvetica Neue', 'Arial', 'Liberation Sans', sans-serif"
+        font-size="68"
+        font-weight="800"
+        fill="url(#wordGrad)"
+        letter-spacing="2"
+        filter="url(#textGlow)">aks</text>
+
+</svg>

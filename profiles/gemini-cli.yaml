@@ -1,0 +1,81 @@
+name: gemini-cli
+version: "1.0"
+description: Behavioral profile for Gemini CLI AI coding agent
+
+default_policy: allow
+
+# entry_comm is the agent's root process. aks uses BPF process lineage
+# tracking to follow gemini and all its descendants (node, sh, git, ...).
+# This eliminates false positives from unrelated processes (e.g. VS Code's
+# node) that share the same comm name.
+entry_comm: gemini
+
+# watched_comms is kept as a fallback for kernels without lineage support.
+watched_comms:
+  - gemini
+  - node
+
+denied_paths:
+  # Demo: block a fake secret file (safe to test without model safety refusals)
+  - /tmp/secret.txt
+
+  # Credential files
+  - /etc/shadow
+  - /etc/sudoers
+  - /etc/sudoers.d/**
+  - /root/.ssh/**
+  - /home/*/.ssh/**
+  - /proc/*/mem
+
+  # Cloud provider credentials
+  - /**/.aws/credentials
+  - /**/.aws/config
+  - /**/.gcp/**
+  - /**/.config/gcloud/**
+  - /run/secrets/**
+
+  # Crypto / GPG keys
+  - /**/.gnupg/**
+  - /**/.age/**
+
+  # Other agents' credentials
+  - /**/.anthropic/**
+  - /**/.config/claude/**
+
+allowed_paths:
+  - /home/**
+  - /tmp/**
+  - /usr/**
+  - /lib/**
+  - /lib64/**
+  - /opt/**
+  - /proc/self/**
+  - /proc/*/stat
+  - /proc/*/status
+  - /dev/null
+  - /dev/urandom
+  - /dev/random
+  - /etc/resolv.conf
+  - /etc/hosts
+  - /etc/hostname
+  - /etc/nsswitch.conf
+  - /etc/ssl/certs/**
+  - /etc/ca-certificates/**
+
+allowed_networks:
+  - 127.0.0.0/8
+  - ::1/128
+  - 0.0.0.0/0
+
+allowed_commands:
+  - gemini
+  - node
+  - git
+  - go
+  - python3
+  - python
+  - make
+  - gcc
+  - clang
+  - npm
+  - npx
