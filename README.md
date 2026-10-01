@@ -118,9 +118,23 @@ entry_comm: gemini   # root process to track
 ```bash
 # Unit tests (works on macOS and Linux, no eBPF required)
 make test-unit
+# = go test ./internal/... -race -count=1
 
 # Integration / e2e test (Linux + root, requires BPF LSM enabled)
 make test-integration
+# = make bpf + sudo go test -tags integration ./test/e2e/
+```
+
+How to test blocking manually (no agent needed):
+
+```bash
+make bpf && make build
+sudo ./aks watch --profile ./test-gemini.yaml --bpf-obj bpf/aks.bpf.o &
+# in another shell (unwatched, should succeed):
+cat blockme.txt
+# via watched tree — run through gemini CLI:
+# > read @blockme.txt   # expect BLOCK file_open /home/kisuke/AKS/blockme.txt + EPERM
+grep BLOCK /var/log/aks-gemini.jsonl
 ```
 
 ## Demo
