@@ -10,6 +10,13 @@ Aks attaches to AI agent processes (Claude Code, Gemini CLI, Ollama) and enforce
 
 ## How it works
 
+```mermaid
+flowchart LR
+    A["AI process<br/>claude / gemini / ollama"] -->|syscalls| B["Linux Kernel<br/>eBPF LSM hooks<br/>file_open / socket_connect / bprm_check"]
+    B -->|ringbuf events| C["aks daemon<br/>profile → ALLOW / BLOCK"]
+    C -->|JSON + SSE| D["Audit log / SIEM<br/>Web UI :7394"]
+```
+
 ```
 AI process (claude, gemini, ollama, ...)
         │ syscalls
@@ -29,6 +36,19 @@ Audit log / SIEM
 - **Detector** (`internal/detector`): evaluates kernel events against the loaded profile
 - **Audit** (`internal/audit`): one JSON line per decision, stdout or file
 - **Web UI** (`internal/ui`): real-time event feed with BLOCK/ALLOW badges, served over SSE
+
+## Tech Stack
+
+| Layer | Tech |
+|---|---|
+| Daemon | Go 1.24 (`cmd/aks`, `internal/`) |
+| eBPF | C (`bpf/probe.c`, `bpf/lsm.c`), `clang` + `bpftool`, CO-RE |
+| Loader | `github.com/cilium/ebpf`, ringbuf, LSM attach, uprobes |
+| CLI | `github.com/spf13/cobra` |
+| Profiles | YAML (`gopkg.in/yaml.v3`), `doublestar` globs, CIDR match |
+| Kernel | Linux 5.7+ `CONFIG_BPF_LSM=y`, `lsm=bpf`, BTF `/sys/kernel/btf/vmlinux` |
+| UI / Audit | SSE + embedded static HTML, JSONL to stdout/file |
+| Test | `go test -race`, `testify`, QEMU `linux-image-generic` e2e |
 
 ## Requirements
 
@@ -98,9 +118,23 @@ entry_comm: gemini   # root process to track
 ```bash
 # Unit tests (works on macOS and Linux, no eBPF required)
 make test-unit
+# = go test ./internal/... -race -count=1
 
 # Integration / e2e test (Linux + root, requires BPF LSM enabled)
 make test-integration
+# = make bpf + sudo go test -tags integration ./test/e2e/
+```
+
+How to test blocking manually (no agent needed):
+
+```bash
+make bpf && make build
+sudo ./aks watch --profile ./test-gemini.yaml --bpf-obj bpf/aks.bpf.o &
+# in another shell (unwatched, should succeed):
+cat blockme.txt
+# via watched tree — run through gemini CLI:
+# > read @blockme.txt   # expect BLOCK file_open /home/kisuke/AKS/blockme.txt + EPERM
+grep BLOCK /var/log/aks-gemini.jsonl
 ```
 
 ## Demo
