@@ -8,24 +8,17 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:        #0d1117;
-      --surface:   #161c26;
-      --raised:    #1c2333;
-      --border:    #21293b;
-      --text:      #cdd6f4;
-      --muted:     #6b7a99;
-      --red:       #f38ba8;
-      --red-dim:   #3d1a24;
-      --green:     #a6e3a1;
-      --green-dim: #1a3020;
-      --blue:      #89b4fa;
-      --orange:    #fab387;
-      --purple:    #cba6f7;
-      --yellow:    #f9e2af;
-      --cyan:      #89dceb;
-      --cyan-dim:  #0d2a30;
-      --radius:    6px;
-      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      --bg:        #090a0d;
+      --surface:   #0e1013;
+      --raised:    #0e1013;
+      --border:    #1b1e25;
+      --text:      #c4cad3;
+      --muted:     #5f6775;
+      --red:       #ff453a;
+      --green:     #5f6775;
+      --accent:    #c4cad3;
+      --radius:    0px;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
     }
 
     body {
@@ -34,83 +27,68 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      font-size: 13px;
+      font-size: 12px;
     }
 
-    /* ── Header ── */
+    /* ── Header: single 32px signal line ── */
     header {
       background: var(--surface);
       border-bottom: 1px solid var(--border);
-      padding: 12px 20px;
+      padding: 0 16px;
+      height: 32px;
       display: flex;
       align-items: center;
-      gap: 20px;
+      gap: 16px;
       flex-shrink: 0;
+      font-size: 11px;
     }
 
     .logo {
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: 16px;
+      font-size: 13px;
       font-weight: 700;
       letter-spacing: -0.5px;
       color: var(--text);
     }
 
     .logo-dot {
-      width: 8px; height: 8px;
+      width: 6px; height: 6px;
       border-radius: 50%;
-      background: var(--green);
-      box-shadow: 0 0 8px var(--green);
-      animation: pulse 2s ease-in-out infinite;
+      background: var(--red);
     }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
+    .logo-dot.offline { background: var(--muted); }
 
-    .logo-dot.offline { background: var(--muted); box-shadow: none; animation: none; }
-
-    .profile-badge {
-      background: var(--raised);
-      border: 1px solid var(--border);
-      color: var(--blue);
-      padding: 2px 10px;
-      border-radius: 20px;
-      font-size: 11px;
-      letter-spacing: 0.5px;
-    }
-
+    .profile-badge,
     .version-badge {
-      background: var(--raised);
-      border: 1px solid var(--border);
+      background: none;
+      border: none;
       color: var(--muted);
-      padding: 2px 10px;
-      border-radius: 20px;
+      padding: 0;
       font-size: 11px;
-      letter-spacing: 0.5px;
     }
 
     .stats {
       margin-left: auto;
       display: flex;
-      gap: 20px;
-      align-items: center;
+      gap: 16px;
+      align-items: baseline;
     }
 
     .stat {
       display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 1px;
+      flex-direction: row;
+      align-items: baseline;
+      gap: 6px;
     }
 
     .stat-value {
-      font-size: 18px;
-      font-weight: 700;
+      font-size: 12px;
+      font-weight: 600;
       line-height: 1;
+      font-variant-numeric: tabular-nums;
     }
 
     .stat-label {
@@ -122,7 +100,7 @@
 
     .stat-value.total  { color: var(--text); }
     .stat-value.blocks { color: var(--red); }
-    .stat-value.allows { color: var(--green); }
+    .stat-value.allows { color: var(--muted); }
 
     .conn-status {
       display: flex;
@@ -130,106 +108,104 @@
       gap: 6px;
       font-size: 11px;
       color: var(--muted);
-      padding: 4px 10px;
-      border-radius: 20px;
-      border: 1px solid var(--border);
+      padding: 0;
+      border: none;
     }
 
     .conn-dot {
       width: 6px; height: 6px;
       border-radius: 50%;
-      background: var(--green);
+      background: var(--muted);
     }
 
     .conn-dot.offline { background: var(--red); }
 
-    /* ── Tab bar ── */
+    /* ── Tab bar: text-only ── */
     .tab-bar {
       background: var(--surface);
       border-bottom: 1px solid var(--border);
-      padding: 0 20px;
+      padding: 0 16px;
       display: flex;
+      gap: 4px;
       flex-shrink: 0;
     }
 
     .tab-btn {
       background: none;
       border: none;
-      border-bottom: 2px solid transparent;
+      border-bottom: 1px solid transparent;
       color: var(--muted);
-      padding: 10px 16px;
+      padding: 8px 10px;
       cursor: pointer;
-      font-size: 12px;
+      font-size: 11px;
       font-family: inherit;
       letter-spacing: 0.5px;
       text-transform: uppercase;
-      transition: color 0.1s, border-color 0.1s;
       margin-bottom: -1px;
     }
 
     .tab-btn:hover { color: var(--text); }
-    .tab-btn.active { color: var(--text); border-bottom-color: var(--blue); }
+    .tab-btn.active { color: var(--text); border-bottom-color: var(--text); }
 
-    /* blocked tab button gets red accent when there are blocks */
+    /* blocked tab button turns red when there are blocks */
     .tab-btn.has-blocks { border-bottom-color: var(--red); color: var(--red); }
 
     /* ── Tab content panels ── */
     .tab-panel { display: none; flex: 1; flex-direction: column; overflow: hidden; }
     .tab-panel.active { display: flex; }
 
-    /* ── Toolbar ── */
+    /* ── Toolbar: text-only filters ── */
     .toolbar {
       background: var(--surface);
       border-bottom: 1px solid var(--border);
-      padding: 8px 20px;
+      padding: 6px 16px;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 12px;
       flex-shrink: 0;
       flex-wrap: wrap;
+      font-size: 11px;
     }
 
-    .filter-group { display: flex; gap: 4px; }
+    .filter-group { display: flex; gap: 2px; }
 
     .filter-btn {
       background: none;
-      border: 1px solid var(--border);
+      border: none;
+      border-bottom: 1px solid transparent;
       color: var(--muted);
-      padding: 4px 10px;
-      border-radius: 4px;
+      padding: 2px 6px;
       cursor: pointer;
       font-size: 11px;
       font-family: inherit;
       letter-spacing: 0.5px;
-      transition: all 0.1s;
+      text-transform: uppercase;
     }
 
-    .filter-btn:hover { border-color: var(--muted); color: var(--text); }
-    .filter-btn.active { color: var(--text); border-color: var(--text); background: var(--raised); }
-    .filter-btn.action-block.active { color: var(--red);    border-color: var(--red); }
-    .filter-btn.action-allow.active { color: var(--green);  border-color: var(--green); }
-    .filter-btn.type-file.active    { color: var(--blue);   border-color: var(--blue); }
-    .filter-btn.type-exec.active    { color: var(--orange); border-color: var(--orange); }
-    .filter-btn.type-net.active     { color: var(--purple); border-color: var(--purple); }
-    .filter-btn.type-ssl.active     { color: var(--cyan);   border-color: var(--cyan); }
+    .filter-btn:hover { color: var(--text); }
+    .filter-btn.active { color: var(--text); border-bottom-color: var(--text); }
+    .filter-btn.action-block.active { color: var(--red); border-bottom-color: var(--red); }
+    .filter-btn.action-allow.active { color: var(--text); border-bottom-color: var(--text); }
+    .filter-btn.type-file.active,
+    .filter-btn.type-exec.active,
+    .filter-btn.type-net.active,
+    .filter-btn.type-ssl.active     { color: var(--text); border-bottom-color: var(--text); }
 
     .divider { width: 1px; background: var(--border); align-self: stretch; margin: 0 4px; }
 
     .clear-btn {
       margin-left: auto;
       background: none;
-      border: 1px solid var(--border);
+      border: none;
       color: var(--muted);
-      padding: 4px 12px;
-      border-radius: 4px;
+      padding: 2px 6px;
       cursor: pointer;
       font-size: 11px;
       font-family: inherit;
-      transition: all 0.1s;
     }
-    .clear-btn:hover { border-color: var(--red); color: var(--red); }
+    .clear-btn:hover { color: var(--red); }
 
-    /* ── Event table ── */
+    /* ── Event table: dense signal lines ── */
     .table-container { flex: 1; overflow-y: auto; }
 
     table { width: 100%; border-collapse: collapse; table-layout: fixed; }
@@ -237,12 +213,12 @@
     thead {
       position: sticky;
       top: 0;
-      background: var(--raised);
+      background: var(--surface);
       z-index: 10;
     }
 
     th {
-      padding: 8px 12px;
+      padding: 6px 10px;
       text-align: left;
       font-size: 10px;
       letter-spacing: 0.8px;
@@ -260,70 +236,62 @@
     th.col-action  { width: 75px; text-align: right; }
 
     td {
-      padding: 6px 12px;
+      padding: 4px 10px;
       border-bottom: 1px solid var(--border);
       vertical-align: middle;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      font-size: 11px;
     }
 
     tr.row-block {
-      border-left: 3px solid var(--red);
-      background: var(--red-dim);
+      border-left: 2px solid var(--red);
       cursor: pointer;
     }
-    tr.row-block:hover { background: #4a1f2c; }
 
-    tr.row-allow { border-left: 3px solid transparent; cursor: pointer; }
-    tr.row-allow:hover { background: var(--raised); }
+    tr.row-allow { border-left: 2px solid transparent; cursor: pointer; }
 
-    tr.row-selected { outline: 1px solid var(--blue); }
-
-    .time-cell    { color: var(--muted); font-size: 11px; }
-    .pid-cell     { color: var(--muted); font-size: 11px; }
-    .process-cell { color: var(--yellow); font-weight: 500; }
+    .time-cell    { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+    .pid-cell     { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+    .process-cell { color: var(--text); font-weight: 500; }
 
     .badge {
-      display: inline-block;
-      padding: 2px 7px;
-      border-radius: 3px;
+      display: inline;
+      padding: 0;
       font-size: 10px;
       font-weight: 600;
       letter-spacing: 0.5px;
     }
 
-    .badge-file { background: #1a2a3a; color: var(--blue); }
-    .badge-exec { background: #2a1f10; color: var(--orange); }
-    .badge-net  { background: #1f1a2a; color: var(--purple); }
-    .badge-ssl  { background: var(--cyan-dim); color: var(--cyan); }
+    .badge-file,
+    .badge-exec,
+    .badge-net,
+    .badge-ssl  { background: none; color: var(--muted); }
 
-    .detail-cell { color: var(--text); font-size: 12px; }
-    .detail-cell .dest { color: var(--purple); }
-    .detail-cell .ssl-preview { color: var(--cyan); font-size: 11px; }
+    .detail-cell { color: var(--muted); font-size: 11px; }
+    tr.row-block .detail-cell { color: var(--text); }
+    .detail-cell .dest { color: inherit; }
+    .detail-cell .ssl-preview { color: var(--muted); font-size: 11px; }
     .detail-cell .ssl-dir { color: var(--muted); margin-right: 6px; }
 
     .action-cell { text-align: right; }
 
     .action-block {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 3px;
-      background: var(--red-dim);
+      display: inline;
+      padding: 0;
       color: var(--red);
-      border: 1px solid var(--red);
       font-size: 10px;
       font-weight: 700;
       letter-spacing: 0.5px;
     }
 
     .action-allow {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 3px;
-      color: var(--green);
+      display: inline;
+      padding: 0;
+      color: var(--muted);
       font-size: 10px;
-      font-weight: 600;
+      font-weight: 400;
       letter-spacing: 0.5px;
     }
 
@@ -333,62 +301,52 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 60px 20px;
+      padding: 64px 20px;
       color: var(--muted);
-      gap: 12px;
+      gap: 8px;
     }
 
-    .empty-icon { font-size: 32px; opacity: 0.4; }
-    .empty-text { font-size: 13px; }
+    .empty-text { font-size: 11px; }
 
-    /* ── Blocked tab ── */
+    /* ── Blocked tab: flat groups, no boxes ── */
     .blocked-container {
       flex: 1;
       overflow-y: auto;
-      padding: 16px 20px;
+      padding: 8px 16px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 0;
     }
 
     .blocked-proc {
-      border: 1px solid var(--red);
-      border-radius: var(--radius);
-      overflow: hidden;
+      border: none;
+      border-bottom: 1px solid var(--border);
     }
 
-    @keyframes flash-new {
-      0%   { background: #5a2030; }
-      100% { background: var(--red-dim); }
-    }
-
-    .blocked-proc.flash { animation: flash-new 0.6s ease-out; }
+    .blocked-proc.flash { animation: none; }
 
     .blocked-proc-header {
       display: flex;
-      align-items: center;
+      align-items: baseline;
       gap: 10px;
-      padding: 10px 14px;
-      background: var(--red-dim);
+      padding: 8px 0;
       cursor: pointer;
       user-select: none;
     }
 
-    .blocked-proc-header:hover { background: #4a1f2c; }
-
     .blocked-proc-pid {
-      background: var(--raised);
-      border: 1px solid var(--red);
-      color: var(--red);
-      padding: 1px 6px;
-      border-radius: 3px;
-      font-size: 10px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      padding: 0;
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
     }
 
     .blocked-proc-comm {
-      color: var(--yellow);
+      color: var(--text);
       font-weight: 600;
-      font-size: 13px;
+      font-size: 12px;
     }
 
     .blocked-proc-ppid {
@@ -398,37 +356,33 @@
 
     .blocked-proc-badge {
       margin-left: auto;
-      background: var(--red);
-      color: var(--bg);
-      padding: 2px 8px;
-      border-radius: 3px;
+      background: none;
+      color: var(--red);
+      border: none;
+      padding: 0;
       font-size: 10px;
       font-weight: 700;
       letter-spacing: 0.5px;
     }
 
     .blocked-proc-hint {
-      font-size: 10px;
-      color: var(--muted);
-      margin-left: 4px;
+      display: none;
     }
 
     .blocked-events {
-      border-top: 1px solid var(--border);
+      border-top: none;
     }
 
     .blocked-event {
       display: flex;
-      align-items: center;
+      align-items: baseline;
       gap: 10px;
-      padding: 7px 14px;
-      border-bottom: 1px solid var(--border);
-      font-size: 12px;
+      padding: 4px 0 4px 16px;
+      border-bottom: none;
+      font-size: 11px;
     }
 
-    .blocked-event:last-child { border-bottom: none; }
-
-    .blocked-event-time { color: var(--muted); font-size: 11px; width: 50px; flex-shrink: 0; }
+    .blocked-event-time { color: var(--muted); font-size: 11px; width: 60px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
     .blocked-event-detail { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
     .blocked-event-reason { color: var(--muted); font-size: 11px; flex-shrink: 0; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -437,6 +391,10 @@
     ::-webkit-scrollbar-track { background: var(--bg); }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
   </style>
 </head>
 <body>
@@ -486,8 +444,7 @@
 
   <div class="table-container" id="tableContainer">
     <div class="empty" id="emptyState">
-      <div class="empty-icon">◈</div>
-      <div class="empty-text">waiting for events…</div>
+      <div class="empty-text">— idle · waiting for events —</div>
     </div>
     <table id="eventsTable" style="display:none">
       <thead>
@@ -508,8 +465,7 @@
 <!-- ── BLOCKED TAB ── -->
 <div class="tab-panel" id="panel-blocked">
   <div class="empty" id="blockedEmpty">
-    <div class="empty-icon">◈</div>
-    <div class="empty-text">no blocked events yet</div>
+    <div class="empty-text">— no blocks —</div>
   </div>
   <div class="blocked-container" id="blockedContainer" style="display:none"></div>
 </div>
@@ -549,6 +505,11 @@
   const clearPidFilter = document.getElementById('clearPidFilter');
 
   // ── Helpers ────────────────────────────────────────────────────────────────
+  function absTime(isoStr) {
+    const d = new Date(isoStr);
+    return d.toTimeString().slice(0, 8);
+  }
+
   function relTime(isoStr) {
     const diff = Math.floor((Date.now() - new Date(isoStr)) / 1000);
     if (diff < 5)    return 'just now';
@@ -559,9 +520,10 @@
 
   setInterval(() => {
     document.querySelectorAll('[data-ts]').forEach(el => {
-      el.textContent = relTime(el.dataset.ts);
+      el.textContent = absTime(el.dataset.ts);
+      el.title = relTime(el.dataset.ts) + ' ago';
     });
-  }, 5000);
+  }, 30000);
 
   function escHtml(s) {
     return String(s)
@@ -610,14 +572,14 @@
     tr.title = evt.reason || '';
 
     tr.innerHTML = `
-      <td class="time-cell" data-ts="${escHtml(evt.ts)}">${relTime(evt.ts)}</td>
+      <td class="time-cell" data-ts="${escHtml(evt.ts)}" title="${escHtml(evt.ts)}">${absTime(evt.ts)}</td>
       <td class="pid-cell">${escHtml(String(evt.pid))}</td>
       <td class="process-cell">${escHtml(evt.comm)}</td>
       <td>${typeBadge(evt)}</td>
       <td class="detail-cell">${detail(evt)}</td>
       <td class="action-cell">
         ${isBlock
-          ? `<span class="action-block">BLOCK</span>`
+          ? `<span class="action-block">■ BLOCK</span>`
           : `<span class="action-allow">ALLOW</span>`}
       </td>`;
 
@@ -722,7 +684,7 @@
         <div class="blocked-events">
           ${proc.blockedEvents.map(evt => `
             <div class="blocked-event">
-              <span class="blocked-event-time" data-ts="${escHtml(evt.ts)}">${relTime(evt.ts)}</span>
+              <span class="blocked-event-time" data-ts="${escHtml(evt.ts)}" title="${escHtml(evt.ts)}">${absTime(evt.ts)}</span>
               ${typeBadge(evt)}
               <span class="blocked-event-detail">${escHtml(eventDetail(evt))}</span>
               <span class="blocked-event-reason">${escHtml(evt.reason || '')}</span>
@@ -768,15 +730,9 @@
       // Flash the Blocked tab button
       blockedTabBtn.classList.add('has-blocks');
 
-      // If Blocked tab is active, update it and flash the card
+      // If Blocked tab is active, update it
       if (state.activeTab === 'blocked') {
         renderBlocked();
-        const card = document.getElementById('bproc-' + pid);
-        if (card) {
-          card.classList.remove('flash');
-          void card.offsetWidth; // reflow to restart animation
-          card.classList.add('flash');
-        }
       }
     }
 
