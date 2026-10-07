@@ -12,22 +12,19 @@ Aks attaches to AI agent processes (Claude Code, Gemini CLI, Ollama) and enforce
 
 ```mermaid
 flowchart LR
-    A["AI process<br/>claude / gemini / ollama"] -->|syscalls| B["Linux Kernel<br/>eBPF LSM hooks<br/>file_open / socket_connect / bprm_check"]
-    B -->|ringbuf events| C["aks daemon<br/>profile → ALLOW / BLOCK"]
-    C -->|JSON + SSE| D["Audit log / SIEM<br/>Web UI :7394"]
-```
-
-```
-AI process (claude, gemini, ollama, ...)
-        │ syscalls
-        ▼
-Linux Kernel: eBPF LSM hooks (file_open, socket_connect, bprm_check)
-        │ ring buffer events
-        ▼
-aks daemon: evaluates against profile → ALLOW / BLOCK
-        │ JSON + real-time UI
-        ▼
-Audit log / SIEM
+    A["AI agent tree<br/>claude / gemini / ollama<br/>children node / sh / git"] --> B["Lineage tracepoints<br/>exec / fork / exit"]
+    B --> WP["watched_pids<br/>map"]
+    WP --> C["LSM hooks<br/>file_open / socket_connect<br/>bprm_check"]
+    WP --> D["Observer tracepoints<br/>syscall observe"]
+    A --> C
+    A --> D
+    C --> E["ringbuf<br/>events"]
+    D --> E
+    E --> F["aks daemon detector<br/>profile check<br/>ALLOW / BLOCK"]
+    F -->|"BlockIP to map"| C
+    F -->|"EPERM on deny"| A
+    F --> G["JSONL audit log"]
+    F --> H["Web UI :7394<br/>SSE feed"]
 ```
 
 - **Kernel layer** (`bpf/`): tracepoints observe syscalls; LSM hooks enforce policy inline
@@ -60,21 +57,31 @@ Audit log / SIEM
 
 ## Quick start
 
+No prebuilt releases are published yet — build from source (Linux amd64/arm64):
+
 ```bash
-# Install from latest release (Linux amd64/arm64)
-curl -fsSL https://github.com/Bappaditya-kuilya/aks/releases/latest/download/install.sh | sudo bash
+# Prerequisites: Go 1.22+, clang, llvm, bpftool, linux-headers
+sudo apt install -y golang-go clang llvm bpftool linux-headers-$(uname -r)
+
+# Build the daemon and the eBPF object
+make
+
+# Enable BPF LSM (one-time, requires reboot):
+# add lsm=bpf to GRUB_CMDLINE_LINUX in /etc/default/grub, then:
+sudo update-grub && sudo reboot
+# Verify: cat /sys/kernel/security/lsm  # must contain "bpf"
 
 # Watch an AI agent with the built-in profile
-sudo aks watch --framework gemini-cli
+sudo ./aks watch --profile ./profiles/gemini-cli.yaml --bpf-obj bpf/aks.bpf.o
 
 # With real-time web UI at http://localhost:7394
-sudo aks watch --framework claude-code --ui
+sudo ./aks watch --profile ./profiles/claude-code.yaml --bpf-obj bpf/aks.bpf.o --ui
 
 # Use a custom profile
-sudo aks watch --profile /path/to/custom.yaml
+sudo ./aks watch --profile /path/to/custom.yaml --bpf-obj bpf/aks.bpf.o
 
 # List available profiles
-aks profile list
+./aks profile list
 ```
 
 ## Output
@@ -128,13 +135,13 @@ make test-integration
 How to test blocking manually (no agent needed):
 
 ```bash
-make bpf && make build
-sudo ./aks watch --profile ./test-gemini.yaml --bpf-obj bpf/aks.bpf.o &
+make
+sudo ./aks watch --profile ./test-gemini.yaml --bpf-obj bpf/aks.bpf.o > /tmp/aks-test.jsonl 2>&1 &
 # in another shell (unwatched, should succeed):
-cat blockme.txt
+echo test > /tmp/secret.txt && cat /tmp/secret.txt
 # via watched tree — run through gemini CLI:
-# > read @blockme.txt   # expect BLOCK file_open /home/kisuke/AKS/blockme.txt + EPERM
-grep BLOCK /var/log/aks-gemini.jsonl
+# > read @/tmp/secret.txt   # expect BLOCK file_open /tmp/secret.txt + EPERM
+grep BLOCK /tmp/aks-test.jsonl
 ```
 
 ## Demo
