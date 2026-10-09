@@ -4,6 +4,9 @@ package loader
 
 import (
 	"encoding/binary"
+	"net"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -42,6 +45,51 @@ func TestCmdlineMatchesEntry_emptyEntryComm(t *testing.T) {
 	l := &Loader{entryComm: ""}
 	// Empty entry_comm → never matches (lineage tracking disabled).
 	assert.False(t, cmdlineMatchesEntryStr(l.entryComm, "gemini\x00"))
+}
+
+// TestExpandDeniedPaths_GlobMatchesFiles verifies a glob denied_paths entry
+// expands to one exact key per concrete match (the BPF map only does
+// exact-match lookups, so literal "**" keys would never match).
+func TestExpandDeniedPaths_GlobMatchesFiles(t *testing.T) {
+	dir := t.TempDir()
+	a := filepath.Join(dir, "a.txt")
+	b := filepath.Join(dir, "b.txt")
+	require.NoError(t, os.WriteFile(a, []byte("a"), 0o600))
+	require.NoError(t, os.WriteFile(b, []byte("b"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "c.log"), []byte("c"), 0o600))
+
+	// Single-level pattern goes through stdlib filepath.Glob.
+	got := expandDeniedPaths(filepath.Join(dir, "*.txt"))
+	assert.ElementsMatch(t, []string{a, b}, got)
+}
+
+// TestExpandDeniedPaths_DoubleStarMatchesNested verifies the doublestar
+// branch: ** recursion reaches files in subdirectories.
+func TestExpandDeniedPaths_DoubleStarMatchesNested(t *testing.T) {
+	dir := t.TempDir()
+	top := filepath.Join(dir, "top.txt")
+	sub := filepath.Join(dir, "sub")
+	require.NoError(t, os.MkdirAll(sub, 0o755))
+	nested := filepath.Join(sub, "nested.txt")
+	require.NoError(t, os.WriteFile(top, []byte("t"), 0o600))
+	require.NoError(t, os.WriteFile(nested, []byte("n"), 0o600))
+
+	got := expandDeniedPaths(filepath.Join(dir, "**", "*.txt"))
+	assert.ElementsMatch(t, []string{top, nested}, got)
+}
+
+// TestExpandDeniedPaths_NoMatchSkipped verifies a pattern matching nothing
+// yields no keys (fail-open for that rule, with a stderr warning).
+func TestExpandDeniedPaths_NoMatchSkipped(t *testing.T) {
+	dir := t.TempDir()
+	got := expandDeniedPaths(filepath.Join(dir, "*.nomatch"))
+	assert.Empty(t, got)
+}
+
+// TestExpandDeniedPaths_LiteralUnchanged verifies entries without glob
+// metacharacters keep the current verbatim behavior.
+func TestExpandDeniedPaths_LiteralUnchanged(t *testing.T) {
+	assert.Equal(t, []string{"/etc/passwd"}, expandDeniedPaths("/etc/passwd"))
 }
 
 // TestBootWallTime verifies that bootWallTime() returns a time in the past
@@ -103,6 +151,48 @@ func TestDecodeEvent_fields(t *testing.T) {
 func TestDecodeEvent_tooShort(t *testing.T) {
 	_, err := decodeEvent(make([]byte, 100), time.Now())
 	assert.Error(t, err)
+}
+
+// TestDecodeEvent_ipv6 verifies dest_ip6/is_ipv6 decode: a real kernel
+// net_connect event for an IPv6 destination must yield a 16-byte DestIP.
+// Uses a non-palindrome address so byte-order bugs can't hide.
+func TestDecodeEvent_ipv6(t *testing.T) {
+	raw := make([]byte, 320)
+	raw[20] = 1 // event_type = NetConnect
+	copy(raw[24:40], "ollama\x00")
+	// [300:316] dest_ip6 = 2001:db8::1234 (network order, verbatim)
+	want := net.ParseIP("2001:db8::1234").To16()
+	require.NotNil(t, want)
+	copy(raw[300:316], want)
+	// [316:318] dest_port = 443
+	binary.LittleEndian.PutUint16(raw[316:318], 443)
+	// [318] is_ipv6 = 1
+	raw[318] = 1
+
+	e, err := decodeEvent(raw, time.Unix(0, 0))
+	require.NoError(t, err)
+	require.NotNil(t, e.DestIP, "v6 dest_ip must decode")
+	assert.Equal(t, "2001:db8::1234", e.DestIP.String(), "byte order must be preserved")
+	assert.Equal(t, uint16(443), e.DestPort, "dest_port")
+}
+
+// TestDecodeEvent_ipv6Loopback verifies ::1 arrives via the real wire path
+// (the detector ::1 test previously used a hand-built event that real
+// kernel code couldn't produce).
+func TestDecodeEvent_ipv6Loopback(t *testing.T) {
+	raw := make([]byte, 320)
+	raw[20] = 1 // event_type = NetConnect
+	copy(raw[24:40], "ollama\x00")
+	want := net.ParseIP("::1").To16()
+	require.NotNil(t, want)
+	copy(raw[300:316], want)
+	binary.LittleEndian.PutUint16(raw[316:318], 11434)
+	raw[318] = 1
+
+	e, err := decodeEvent(raw, time.Unix(0, 0))
+	require.NoError(t, err)
+	require.NotNil(t, e.DestIP, "loopback must decode")
+	assert.True(t, e.DestIP.Equal(net.ParseIP("::1")), "must be ::1")
 }
 
 // TestDecodeSSLEvent_fields verifies the ssl_event field layout.

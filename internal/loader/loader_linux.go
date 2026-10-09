@@ -4,6 +4,7 @@ package loader
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/Bappaditya-kuilya/aks/internal/events"
 	"github.com/Bappaditya-kuilya/aks/internal/profiles"
+	"github.com/bmatcuk/doublestar/v4"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/ringbuf"
@@ -34,8 +36,10 @@ type objects struct {
 	SSLReadArgs  *ebpf.Map `ebpf:"ssl_read_args"`
 	BlockedPaths *ebpf.Map `ebpf:"blocked_paths"`
 	BlockedIPv4  *ebpf.Map `ebpf:"blocked_ipv4"`
+	BlockedIPv6  *ebpf.Map `ebpf:"blocked_ipv6"` // v6 denylist mirror (Phase 4)
 	EntryComm    *ebpf.Map `ebpf:"entry_comm"`   // agent root process comm
 	WatchedPids  *ebpf.Map `ebpf:"watched_pids"` // agent process tree PIDs
+	CgroupState  *ebpf.Map `ebpf:"cgroup_state"` // per-agent {profile, epoch} (Phase 6 slice D)
 
 	// Observation tracepoints
 	TraceOpenat  *ebpf.Program `ebpf:"trace_openat"`
@@ -73,6 +77,70 @@ type Loader struct {
 	entryComm    string    // agent root process comm, empty if lineage tracking disabled
 }
 
+// PinPath is the bpffs directory holding pinned AKS maps.
+// Maps outlive the daemon process (kill -9 survival); Detach/Close keep
+// these pins, Release/UnpinAll removes them (stop --release).
+const PinPath = "/sys/fs/bpf/aks"
+
+// isExistError reports whether err wraps EEXIST (pin file already exists
+// from a prior run).
+func isExistError(err error) bool {
+	return errors.Is(err, unix.EEXIST) || os.IsExist(err)
+}
+
+// loadObjects loads the collection with every map pinned by name under
+// PinPath. First run creates and pins; re-run reuses compatible pins.
+// An EEXIST from a surviving pin falls back to opening the pinned maps
+// (MapReplacements) instead of failing.
+func loadObjects(spec *ebpf.CollectionSpec, objs *objects) error {
+	if err := os.MkdirAll(PinPath, 0o755); err != nil {
+		return fmt.Errorf("creating pin path %q: %w", PinPath, err)
+	}
+	for _, ms := range spec.Maps {
+		ms.Pinning = ebpf.PinByName
+	}
+	if err := spec.LoadAndAssign(objs, &ebpf.CollectionOptions{
+		Maps: ebpf.MapOptions{PinPath: PinPath},
+	}); err == nil {
+		return nil
+	} else if !isExistError(err) {
+		return err
+	}
+	return loadWithPinnedReuse(spec, objs)
+}
+
+// loadWithPinnedReuse opens whatever pins already exist under PinPath and
+// retries the load with them as MapReplacements (the loader Clones them,
+// so the originals are closed here). Maps with no pin yet are created fresh
+// and pinned on retry. Incompatible pins are a hard error.
+func loadWithPinnedReuse(spec *ebpf.CollectionSpec, objs *objects) error {
+	replacements := make(map[string]*ebpf.Map, len(spec.Maps))
+	for name, ms := range spec.Maps {
+		pinName := ms.Name
+		if pinName == "" {
+			pinName = name
+		}
+		m, err := ebpf.LoadPinnedMap(filepath.Join(PinPath, pinName), nil)
+		if err != nil {
+			continue
+		}
+		if err := ms.Compatible(m); err != nil {
+			_ = m.Close()
+			return err
+		}
+		replacements[name] = m
+	}
+	defer func() {
+		for _, m := range replacements {
+			_ = m.Close()
+		}
+	}()
+	return spec.LoadAndAssign(objs, &ebpf.CollectionOptions{
+		Maps:            ebpf.MapOptions{PinPath: PinPath},
+		MapReplacements: replacements,
+	})
+}
+
 // Load removes the memlock limit, loads eBPF objects from the embedded .o file,
 // populates block-list maps from the profile, and attaches all hooks.
 func Load(p *profiles.Profile, objPath, sslBinaryPath string) (*Loader, error) {
@@ -86,7 +154,7 @@ func Load(p *profiles.Profile, objPath, sslBinaryPath string) (*Loader, error) {
 	}
 
 	var objs objects
-	if err = spec.LoadAndAssign(&objs, nil); err != nil {
+	if err = loadObjects(spec, &objs); err != nil {
 		return nil, fmt.Errorf("loading BPF objects: %w", err)
 	}
 
@@ -209,15 +277,71 @@ func (l *Loader) drainRingbuf(reader *ringbuf.Reader, isSSL bool) {
 	}
 }
 
+// CgroupBasePath is the cgroup v2 root under which per-agent cgroups live.
+// The daemon launcher (`aks run`, out of scope for this slice) creates
+// <CgroupBasePath>/<agent>, moves the agent in, and calls SeedCgroupState.
+const CgroupBasePath = "/sys/fs/cgroup/aks"
+
+// CgroupState mirrors struct cgroup_state in bpf/headers/common.h
+// (spec §8.2: {profile_id u32, epoch u32, flags u32}, 12 bytes).
+type CgroupState struct {
+	ProfileID uint32
+	Epoch     uint32
+	Flags     uint32
+}
+
+// SeedCgroupState creates /sys/fs/cgroup/aks/<agent>, resolves its cgroup v2
+// id (== the directory's inode number, which is what
+// bpf_get_current_cgroup_id() returns), and inserts the baseline entry
+// {profileID, epoch 0, flags 0} into the cgroup_state map. Insert uses Put
+// (UpdateAny, idempotent) so re-seeding never fails. v1 concurrency is one
+// tool per agent, so one entry per agent cgroup. The daemon launcher calls
+// this per agent; it is intentionally NOT called from populateMaps/Load,
+// which have no agent identity.
+func (l *Loader) SeedCgroupState(agent string, profileID uint32) error {
+	if l.objs.CgroupState == nil {
+		return fmt.Errorf("SeedCgroupState: cgroup_state map not loaded (rebuild BPF object)")
+	}
+	if agent == "" {
+		return fmt.Errorf("SeedCgroupState: empty agent name")
+	}
+	dir := filepath.Join(CgroupBasePath, agent)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("creating cgroup dir %q: %w", dir, err)
+	}
+	var st unix.Stat_t
+	if err := unix.Stat(dir, &st); err != nil {
+		return fmt.Errorf("statting cgroup dir %q: %w", dir, err)
+	}
+	key := uint64(st.Ino)
+	val := CgroupState{ProfileID: profileID, Epoch: 0, Flags: 0}
+	if err := l.objs.CgroupState.Put(key, val); err != nil {
+		return fmt.Errorf("cgroup_state.Put(agent=%q): %w", agent, err)
+	}
+	return nil
+}
+
 // populateMaps converts profile rules into BPF map entries.
+// Idempotent for reuse: all inserts use Put (UpdateAny, overwrite), so
+// re-attaching to surviving pins never duplicate-fails. Stale blocked_ipv4
+// entries (runtime BlockIP detections) are intentionally preserved
+// (fail-closed); stale watched_pids entries are preserved and the current
+// tree is re-seeded on top (over-watch is safe, under-watch is not).
 func (l *Loader) populateMaps(p *profiles.Profile) error {
 	one := uint8(1)
 
-	// Denied file paths → blocked_paths map
-	for _, path := range p.DeniedPaths {
-		key := pathKey(path)
-		if err := l.objs.BlockedPaths.Put(key, one); err != nil {
-			return fmt.Errorf("blocked_paths.Put(%q): %w", path, err)
+	// Denied file paths → blocked_paths map.
+	// The BPF LSM hook does exact-match lookups, so glob patterns
+	// (e.g. /root/.ssh/**) must be expanded to concrete paths here in
+	// userspace, where doublestar.Match semantics apply (profiles.MatchPath).
+	// Entries without metacharacters are inserted verbatim; entries that
+	// match nothing are skipped with a stderr warning (fail-open, visible).
+	for _, pattern := range p.DeniedPaths {
+		for _, path := range expandDeniedPaths(pattern) {
+			key := pathKey(path)
+			if err := l.objs.BlockedPaths.Put(key, one); err != nil {
+				return fmt.Errorf("blocked_paths.Put(%q): %w", path, err)
+			}
 		}
 	}
 
@@ -241,6 +365,43 @@ func (l *Loader) populateMaps(p *profiles.Profile) error {
 	_ = one
 
 	return nil
+}
+
+// expandDeniedPaths resolves one denied_paths entry to the concrete paths to
+// insert as exact keys in the blocked_paths map. Entries without glob
+// metacharacters are returned verbatim. Entries that match nothing (or fail
+// to glob) are skipped with a stderr warning so the fail-open is visible,
+// not silent.
+func expandDeniedPaths(pattern string) []string {
+	if !hasGlobMeta(pattern) {
+		return []string{pattern}
+	}
+	matches, err := globExpand(pattern)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "aks: warning: denied_paths pattern %q: %v, skipping\n", pattern, err)
+		return nil
+	}
+	if len(matches) == 0 {
+		fmt.Fprintf(os.Stderr, "aks: warning: denied_paths pattern %q matched no files, skipping\n", pattern)
+		return nil
+	}
+	return matches
+}
+
+// hasGlobMeta reports whether pattern contains glob metacharacters.
+func hasGlobMeta(pattern string) bool {
+	return strings.ContainsAny(pattern, "*?[{")
+}
+
+// globExpand runs the filesystem glob for a pattern known to contain
+// metacharacters. Stdlib filepath.Glob suffices for single-level patterns;
+// doublestar handles ** recursion and {alt} groups, which filepath cannot
+// express.
+func globExpand(pattern string) ([]string, error) {
+	if strings.Contains(pattern, "**") || strings.Contains(pattern, "{") {
+		return doublestar.FilepathGlob(pattern)
+	}
+	return filepath.Glob(pattern)
 }
 
 // attach wires tracepoints and LSM hooks.
@@ -420,8 +581,12 @@ func (l *Loader) expandProcTree(roots []uint32) []uint32 {
 	return result
 }
 
-// Close detaches all hooks, closes maps, and frees resources.
-func (l *Loader) Close() error {
+// Detach unloads programs/links and stops event streaming but KEEPS bpffs
+// pins under PinPath: closing a pinned map's FD leaves the pin (and the
+// kernel map with its policy entries) alive for the next Load to reuse.
+// Enforcement by this Loader instance stops; the surviving policy resumes
+// enforcement once a new Loader re-attaches to the pins.
+func (l *Loader) Detach() error {
 	l.closeOnce.Do(func() {
 		close(l.doneCh)
 		if l.reader != nil {
@@ -445,8 +610,10 @@ func (l *Loader) Close() error {
 		closeObj(l.objs.SSLReadArgs)
 		closeObj(l.objs.BlockedPaths)
 		closeObj(l.objs.BlockedIPv4)
+		closeObj(l.objs.BlockedIPv6)
 		closeObj(l.objs.EntryComm)
 		closeObj(l.objs.WatchedPids)
+		closeObj(l.objs.CgroupState)
 		closeObj(l.objs.TraceOpenat)
 		closeObj(l.objs.TraceExecve)
 		closeObj(l.objs.TraceConnect)
@@ -463,16 +630,40 @@ func (l *Loader) Close() error {
 	return nil
 }
 
-// BlockIP adds an IPv4 address to the runtime block map.
-// Called by the daemon when the detector flags a new connection.
-func (l *Loader) BlockIP(ip net.IP) error {
-	ip4 := ip.To4()
-	if ip4 == nil {
-		return fmt.Errorf("BlockIP: only IPv4 supported in MVP")
+// Close is a backwards-compatible alias for Detach: it stops this Loader's
+// attachment but KEEPS pins under PinPath (normal `stop` keeps enforcement
+// policy for the next `watch`). Use Release for full removal.
+func (l *Loader) Close() error { return l.Detach() }
+
+// UnpinAll removes everything under PinPath. Usable without a Loader
+// (e.g. `stop --release` when no daemon is running).
+func UnpinAll() error {
+	if err := os.RemoveAll(PinPath); err != nil {
+		return fmt.Errorf("removing pin path %q: %w", PinPath, err)
 	}
-	key := binary.BigEndian.Uint32(ip4)
+	return nil
+}
+
+// BlockIP adds an address to the runtime block map (v4 → blocked_ipv4,
+// v6 → blocked_ipv6). Called by the daemon when the detector flags a
+// connection. Behavior change (Phase 4): v6 no longer errors, it blocks.
+func (l *Loader) BlockIP(ip net.IP) error {
+	if ip4 := ip.To4(); ip4 != nil {
+		key := binary.BigEndian.Uint32(ip4)
+		val := uint8(1)
+		return l.objs.BlockedIPv4.Put(key, val)
+	}
+	ip16 := ip.To16()
+	if ip16 == nil {
+		return fmt.Errorf("BlockIP: invalid IP %q", ip.String())
+	}
+	if l.objs.BlockedIPv6 == nil {
+		return fmt.Errorf("BlockIP: blocked_ipv6 map not loaded (rebuild BPF object)")
+	}
+	var key [16]byte // C char[16] key, network-order bytes (same as kernel s6_addr)
+	copy(key[:], ip16)
 	val := uint8(1)
-	return l.objs.BlockedIPv4.Put(key, val)
+	return l.objs.BlockedIPv6.Put(key, val)
 }
 
 // ── Wire format helpers ───────────────────────────────────────────────────────
@@ -521,7 +712,13 @@ func decodeEvent(raw []byte, bootWall time.Time) (events.Event, error) {
 	destIP4 := binary.LittleEndian.Uint32(raw[296:300])
 	e.DestPort = binary.LittleEndian.Uint16(raw[316:318])
 
-	if destIP4 != 0 {
+	// is_ipv6 at [318]: v6 bytes are network order — copy verbatim, no
+	// endian conversion (a non-palindrome test pins the byte order).
+	if raw[318] != 0 {
+		ip := make(net.IP, net.IPv6len)
+		copy(ip, raw[300:316])
+		e.DestIP = ip
+	} else if destIP4 != 0 {
 		b := make([]byte, 4)
 		binary.BigEndian.PutUint32(b, destIP4)
 		e.DestIP = net.IP(b)
