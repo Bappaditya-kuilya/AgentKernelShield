@@ -151,6 +151,12 @@ cat /tmp/secret.txt
 grep BLOCK /tmp/aks-gemini.jsonl
 ```
 
+## Security
+
+Found an enforcement bypass or fail-open bug? Please report it privately via
+[GitHub Security Advisories](https://github.com/Bappaditya-kuilya/AgentKernelShield/security/advisories/new)
+— see [SECURITY.md](SECURITY.md) for scope and disclosure. Do not open a public issue for vulnerabilities.
+
 ## Demo
 
 See [`coder/`](coder/) for a Coder workspace template that provisions a Ubuntu VM with aks, Claude Code, and Gemini CLI, and runs live jailbreak blocking scenarios.
