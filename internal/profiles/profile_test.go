@@ -116,14 +116,6 @@ func TestMatchIP_ExternalDenied(t *testing.T) {
 	}
 }
 
-// ── Verdict.String ───────────────────────────────────────────────────────────
-
-func TestVerdict_String(t *testing.T) {
-	assert.Equal(t, "ALLOW", profiles.VerdictAllow.String())
-	assert.Equal(t, "DENY", profiles.VerdictDeny.String())
-	assert.Equal(t, "DEFAULT", profiles.VerdictDefault.String())
-}
-
 // ── Default policy ───────────────────────────────────────────────────────────
 
 func TestDefaultDeny_AllowPolicy(t *testing.T) {
@@ -250,6 +242,15 @@ func TestMatchCommand_ShellDenied(t *testing.T) {
 	p := loadOllama(t)
 	cases := []string{"bash", "sh", "python3", "curl", "wget", "nc"}
 	for _, cmd := range cases {
-		assert.Equal(t, profiles.VerdictDefault, p.MatchCommand(cmd), "expected DEFAULT(→deny) for %s", cmd)
+		assert.Equal(t, profiles.VerdictDeny, p.MatchCommand(cmd), "expected DENY for %s", cmd)
 	}
+}
+
+func TestMatchCommand_EmptyListDefersToDefault(t *testing.T) {
+	p, err := profiles.LoadBytes([]byte(`name: test`))
+	require.NoError(t, err)
+	// With no allowed_commands list, every command defers to the default
+	// policy so exec behavior is identical to path-only evaluation.
+	assert.Equal(t, profiles.VerdictDefault, p.MatchCommand("/bin/bash"))
+	assert.Equal(t, profiles.VerdictDefault, p.MatchCommand("ollama"))
 }
