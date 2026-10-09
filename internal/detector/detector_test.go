@@ -101,6 +101,7 @@ func TestEvaluate_AllowsOllamaRunner(t *testing.T) {
 	e.Path = "/usr/local/bin/ollama"
 	dec := d.Evaluate(e)
 	assert.Equal(t, detector.Allow, dec.Action)
+	assert.Contains(t, dec.Reason, "allowed path")
 }
 
 func TestEvaluate_BlocksShellExec(t *testing.T) {
@@ -110,7 +111,81 @@ func TestEvaluate_BlocksShellExec(t *testing.T) {
 		e.Path = shell
 		dec := d.Evaluate(e)
 		assert.Equal(t, detector.Block, dec.Action, "want BLOCK for %s", shell)
+		assert.Contains(t, dec.Reason, "allowed_commands", "want command-rule reason for %s", shell)
 	}
+}
+
+func TestEvaluate_ExecAllowlistedCommandFallsThroughToPathVerdict(t *testing.T) {
+	// Basename "ollama" is in allowed_commands but /opt/custom/ollama
+	// matches no path rule — the command list must not grant an allow,
+	// so the exec falls through to the default-deny path verdict.
+	d := newDetector(t)
+	e := evt(events.Exec)
+	e.Path = "/opt/custom/ollama"
+	dec := d.Evaluate(e)
+	assert.Equal(t, detector.Block, dec.Action)
+	assert.Contains(t, dec.Reason, "default policy")
+}
+
+func TestEvaluate_ExecNonAllowlistedBlockedByCommandRule(t *testing.T) {
+	d := newDetector(t)
+	e := evt(events.Exec)
+	e.Path = "/opt/evil/malware"
+	dec := d.Evaluate(e)
+	assert.Equal(t, detector.Block, dec.Action)
+	assert.Contains(t, dec.Reason, "allowed_commands")
+}
+
+func TestEvaluate_ExecBlockedByCommandRuleDespitePathAllow(t *testing.T) {
+	// /tmp/myhelper matches allowed_paths (/tmp/**) but its basename
+	// is not in allowed_commands — the command rule denies first, so
+	// the path allowlist must not grant it.
+	d := newDetector(t)
+	e := evt(events.Exec)
+	e.Path = "/tmp/myhelper"
+	dec := d.Evaluate(e)
+	assert.Equal(t, detector.Block, dec.Action)
+	assert.Contains(t, dec.Reason, "allowed_commands")
+}
+
+func TestEvaluate_ExecWithoutCommandList_PathVerdictUnchanged(t *testing.T) {
+	// Profiles without allowed_commands evaluate exec exactly like file
+	// opens: path rules first, then the default policy.
+	p, err := profiles.LoadBytes([]byte(`
+name: test
+default_policy: deny
+allowed_paths:
+  - /tmp/**
+`))
+	require.NoError(t, err)
+	d := detector.New(p)
+
+	e := evt(events.Exec)
+	e.Path = "/tmp/myhelper"
+	dec := d.Evaluate(e)
+	assert.Equal(t, detector.Allow, dec.Action)
+	assert.Contains(t, dec.Reason, "allowed path")
+
+	e = evt(events.Exec)
+	e.Path = "/opt/other/tool"
+	dec = d.Evaluate(e)
+	assert.Equal(t, detector.Block, dec.Action)
+	assert.Contains(t, dec.Reason, "default policy")
+}
+
+func TestEvaluate_ExecWithoutCommandList_AllowDefaultUnchanged(t *testing.T) {
+	p, err := profiles.LoadBytes([]byte(`
+name: test
+default_policy: allow
+`))
+	require.NoError(t, err)
+	d := detector.New(p)
+
+	e := evt(events.Exec)
+	e.Path = "/opt/anything/tool"
+	dec := d.Evaluate(e)
+	assert.Equal(t, detector.Allow, dec.Action)
+	assert.Contains(t, dec.Reason, "default policy")
 }
 
 // ── Decision fields ──────────────────────────────────────────────────────────
@@ -125,15 +200,39 @@ func TestDecision_CarriesOriginalEvent(t *testing.T) {
 
 // ── Unknown event type ───────────────────────────────────────────────────────
 
-func TestEvaluate_UnknownEventType_PassThrough(t *testing.T) {
+func TestEvaluate_UnknownEventType_DeniedUnderDenyDefault(t *testing.T) {
 	d := newDetector(t)
 	e := evt(events.Type(99))
 	dec := d.Evaluate(e)
+	assert.Equal(t, detector.Block, dec.Action)
+	assert.Contains(t, dec.Reason, "default policy")
+}
+
+func TestEvaluate_UnknownEventType_AllowedUnderAllowDefault(t *testing.T) {
+	p, err := profiles.LoadBytes([]byte(`
+name: test
+default_policy: allow
+`))
+	require.NoError(t, err)
+	d := detector.New(p)
+
+	e := evt(events.Type(99))
+	dec := d.Evaluate(e)
 	assert.Equal(t, detector.Allow, dec.Action)
+	assert.Contains(t, dec.Reason, "default policy")
+}
+
+// ── SSLData is observation-only ──────────────────────────────────────────────
+
+func TestEvaluate_SSLData_ObservationOnly(t *testing.T) {
+	d := newDetector(t)
+	e := evt(events.SSLData)
+	dec := d.Evaluate(e)
+	assert.Equal(t, detector.Allow, dec.Action)
+	assert.Contains(t, dec.Reason, "observation only")
 }
 
 // ── Action.String ────────────────────────────────────────────────────────────
-
 func TestAction_String(t *testing.T) {
 	assert.Equal(t, "ALLOW", detector.Allow.String())
 	assert.Equal(t, "BLOCK", detector.Block.String())

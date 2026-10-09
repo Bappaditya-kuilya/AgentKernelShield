@@ -49,14 +49,16 @@ func (d *Detector) Evaluate(e events.Event) Decision {
 		return Decision{Event: e, Action: Skip, Reason: "not a watched process"}
 	}
 	switch e.Type {
-	case events.FileOpen, events.Exec:
+	case events.FileOpen:
 		return d.evaluatePath(e)
+	case events.Exec:
+		return d.evaluateExec(e)
 	case events.NetConnect:
 		return d.evaluateNetwork(e)
 	case events.SSLData:
 		return Decision{Event: e, Action: Allow, Reason: "ssl capture — observation only"}
 	default:
-		return Decision{Event: e, Action: Allow, Reason: "unknown event type — pass through"}
+		return d.defaultDecision(e, "unknown event type")
 	}
 }
 
@@ -69,6 +71,16 @@ func (d *Detector) evaluatePath(e events.Event) Decision {
 	default:
 		return d.defaultDecision(e, "path matches no rule")
 	}
+}
+
+func (d *Detector) evaluateExec(e events.Event) Decision {
+	// Conservative: a non-allowlisted binary is blocked up front.
+	// Anything else falls through to the path verdict unchanged,
+	// so consulting the command list can only add denies, never allows.
+	if d.profile.MatchCommand(e.Path) == profiles.VerdictDeny {
+		return Decision{Event: e, Action: Block, Reason: "command not in allowed_commands"}
+	}
+	return d.evaluatePath(e)
 }
 
 func (d *Detector) evaluateNetwork(e events.Event) Decision {
