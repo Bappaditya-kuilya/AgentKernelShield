@@ -292,7 +292,11 @@ int uprobe_ssl_write(struct pt_regs *ctx)
 	bpf_get_current_comm(&e->comm, sizeof(e->comm));
 
 	__u32 to_copy = (__u32)num;
-	if (to_copy > MAX_SSL_BUF)
+	__u32 full = (to_copy >= MAX_SSL_BUF);
+	if (to_copy >= MAX_SSL_BUF)
+		to_copy = MAX_SSL_BUF - 1;
+	to_copy &= (MAX_SSL_BUF - 1);
+	if (full)
 		to_copy = MAX_SSL_BUF;
 	e->data_len = to_copy;
 	bpf_probe_read_user(e->data, to_copy, buf);
@@ -353,7 +357,11 @@ int uretprobe_ssl_read(struct pt_regs *ctx)
 	bpf_get_current_comm(&e->comm, sizeof(e->comm));
 
 	__u32 to_copy = (__u32)retval;
-	if (to_copy > MAX_SSL_BUF)
+	__u32 full = (to_copy >= MAX_SSL_BUF);
+	if (to_copy >= MAX_SSL_BUF)
+		to_copy = MAX_SSL_BUF - 1;
+	to_copy &= (MAX_SSL_BUF - 1);
+	if (full)
 		to_copy = MAX_SSL_BUF;
 	e->data_len = to_copy;
 	bpf_probe_read_user(e->data, to_copy, (void *)buf);

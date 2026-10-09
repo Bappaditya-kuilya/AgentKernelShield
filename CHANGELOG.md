@@ -21,3 +21,8 @@
   `/tmp/secret.txt`). Kept: `SSLReadArgs` (FD lifecycle), `Version`
   (schema gate), `Description` (strict-decode compat), `EVENT_SSL_DATA` /
   paddings (ABI/reserved). C edits unverified (no clang here).
+
+## Rollback
+- Release: `aks stop --release` (unpins maps, unloads LSM).
+- Stuck pin: `rm -rf /sys/fs/bpf/aks` then reload.
+- No-boot: pick recovery GRUB entry without `lsm=bpf`.

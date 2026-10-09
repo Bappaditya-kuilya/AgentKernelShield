@@ -139,7 +139,7 @@ static __always_inline void stash_cgroup_state(__u32 *profile_id, __u32 *epoch)
 // then carries a zeroed path. Ringbuf-full still denies and bumps the drop
 // counter instead of denying silently (spec FR-9, G3).
 static __always_inline int deny_with_path(__u32 hook, __u32 type, const char *path,
-					  __u32 profile_id, __u32 epoch)
+                                          __u32 profile_id, __u32 epoch)
 {
 	__u64 pid_tgid = bpf_get_current_pid_tgid();
 	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
@@ -243,7 +243,7 @@ int BPF_PROG(aks_socket_connect, struct socket *sock, struct sockaddr *address, 
 
 	// Non-IP families (e.g. AF_UNIX) stay out of scope — no opinion (FR-11).
 	if (address->sa_family != AF_INET && address->sa_family != AF_INET6)
-		return 0;
+		return 0; // non-IP family (e.g. AF_UNIX) — no opinion, never override other LSMs (FR-11)
 
 	// Phase 4: IPv6 denylist mirror of the IPv4 path below. Loopback and any
 	// non-blocked v6 destination falls through to allow — the Go detector
