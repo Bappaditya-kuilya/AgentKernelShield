@@ -94,7 +94,7 @@ func isExistError(err error) bool {
 // (MapReplacements) instead of failing.
 func loadObjects(spec *ebpf.CollectionSpec, objs *objects) error {
 	if err := os.MkdirAll(PinPath, 0o755); err != nil {
-		return fmt.Errorf("creating pin path %q: %w", PinPath, err)
+		return fmt.Errorf("creating pin path %q: %w (is bpffs mounted? try: mount -t bpf bpf /sys/fs/bpf)", PinPath, err)
 	}
 	for _, ms := range spec.Maps {
 		ms.Pinning = ebpf.PinByName
@@ -313,7 +313,7 @@ func (l *Loader) SeedCgroupState(agent string, profileID uint32) error {
 	if err := unix.Stat(dir, &st); err != nil {
 		return fmt.Errorf("statting cgroup dir %q: %w", dir, err)
 	}
-	key := uint64(st.Ino)
+	key := st.Ino
 	val := CgroupState{ProfileID: profileID, Epoch: 0, Flags: 0}
 	if err := l.objs.CgroupState.Put(key, val); err != nil {
 		return fmt.Errorf("cgroup_state.Put(agent=%q): %w", agent, err)

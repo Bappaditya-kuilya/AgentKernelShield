@@ -221,6 +221,12 @@ jobs:
           mount -t debugfs debugfs /newroot/sys/kernel/debug  || true
           mount -t tracefs tracefs /newroot/sys/kernel/tracing || true
 
+          # bpffs for BPF map pinning (Phase 5): the loader pins maps under
+          # /sys/fs/bpf/aks, which needs bpffs mounted (absent by default in
+          # this minimal guest — without it Load fails creating the pin path).
+          mkdir -p /newroot/sys/fs/bpf
+          mount -t bpf bpf /newroot/sys/fs/bpf || true
+
           # switch_root: uses mount --move to make /newroot the VFS root, then frees
           # the initramfs.  Unlike chroot or pivot_root-from-rootfs, this changes the
           # mount namespace root so bpf_d_path returns /etc/passwd, not /newroot/etc/passwd.
