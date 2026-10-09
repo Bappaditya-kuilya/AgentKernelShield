@@ -69,10 +69,6 @@ func TestEvent_SSLData(t *testing.T) {
 	assert.Equal(t, events.SSLSend, e.Direction)
 	assert.Equal(t, "send", e.Direction.String())
 	assert.Contains(t, e.Data, "prompt")
-	s := e.String()
-	assert.Contains(t, s, "ssl_data")
-	assert.Contains(t, s, "send")
-	assert.Contains(t, s, "claude-code")
 
 	eRecv := events.Event{
 		Direction: events.SSLRecv,
@@ -80,51 +76,6 @@ func TestEvent_SSLData(t *testing.T) {
 	assert.Equal(t, "recv", eRecv.Direction.String())
 }
 
-func TestEvent_String_FileOpen(t *testing.T) {
-	e := events.Event{
-		Type: events.FileOpen,
-		Comm: "ollama",
-		PID:  42,
-		Path: "/etc/shadow",
-	}
-	s := e.String()
-	assert.Contains(t, s, "file_open")
-	assert.Contains(t, s, "/etc/shadow")
-	assert.Contains(t, s, "ollama")
-}
-
-func TestEvent_String_NetConnect(t *testing.T) {
-	e := events.Event{
-		Type:     events.NetConnect,
-		Comm:     "ollama",
-		PID:      42,
-		DestIP:   net.ParseIP("8.8.8.8"),
-		DestPort: 53,
-	}
-	s := e.String()
-	assert.Contains(t, s, "net_connect")
-	assert.Contains(t, s, "8.8.8.8")
-	assert.Contains(t, s, "53")
-}
-
-func TestEvent_String_Exec(t *testing.T) {
-	e := events.Event{
-		Type: events.Exec,
-		Comm: "ollama",
-		PID:  42,
-		Path: "/bin/bash",
-		Argv: []string{"/bin/bash", "-i"},
-	}
-	s := e.String()
-	assert.Contains(t, s, "exec")
-	assert.Contains(t, s, "/bin/bash")
-}
-
 func TestEventType_String_Unknown(t *testing.T) {
 	assert.Equal(t, "unknown", events.Type(99).String())
-}
-
-func TestEvent_String_UnknownType(t *testing.T) {
-	e := events.Event{Type: events.Type(99), Comm: "test", PID: 1}
-	assert.Contains(t, e.String(), "unknown")
 }

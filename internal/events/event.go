@@ -1,7 +1,6 @@
 package events
 
 import (
-	"fmt"
 	"net"
 	"time"
 )
@@ -73,23 +72,4 @@ type Event struct {
 	// SSLData
 	Direction SSLDirection
 	Data      string
-}
-
-func (e Event) String() string {
-	switch e.Type {
-	case FileOpen:
-		return fmt.Sprintf("[%s] pid=%d comm=%s file_open path=%s", e.Timestamp.Format(time.RFC3339), e.PID, e.Comm, e.Path)
-	case NetConnect:
-		return fmt.Sprintf("[%s] pid=%d comm=%s net_connect dst=%s:%d", e.Timestamp.Format(time.RFC3339), e.PID, e.Comm, e.DestIP, e.DestPort)
-	case Exec:
-		return fmt.Sprintf("[%s] pid=%d comm=%s exec path=%s argv=%v", e.Timestamp.Format(time.RFC3339), e.PID, e.Comm, e.Path, e.Argv)
-	case SSLData:
-		preview := e.Data
-		if len(preview) > 64 {
-			preview = preview[:64] + "..."
-		}
-		return fmt.Sprintf("[%s] pid=%d comm=%s ssl_data dir=%s len=%d data=%q", e.Timestamp.Format(time.RFC3339), e.PID, e.Comm, e.Direction, len(e.Data), preview)
-	default:
-		return fmt.Sprintf("[%s] pid=%d comm=%s unknown", e.Timestamp.Format(time.RFC3339), e.PID, e.Comm)
-	}
 }

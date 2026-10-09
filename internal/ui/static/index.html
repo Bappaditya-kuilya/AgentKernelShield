@@ -442,7 +442,7 @@
     <button class="clear-btn" id="clearBtn">clear</button>
   </div>
 
-  <div class="table-container" id="tableContainer">
+  <div class="table-container">
     <div class="empty" id="emptyState">
       <div class="empty-text">— idle · waiting for events —</div>
     </div>
@@ -474,7 +474,6 @@
   const MAX_ROWS = 500;
 
   const state = {
-    events:      [],
     processes:   new Map(), // pid → {pid, ppid, comm, blockedEvents:[]}
     total:       0,
     blocked:     0,
@@ -715,9 +714,6 @@
     statBlocked.textContent = state.blocked;
     statAllowed.textContent = state.allowed;
 
-    state.events.unshift(evt);
-    if (state.events.length > MAX_ROWS) state.events.pop();
-
     // Update process map
     const pid = evt.pid;
     if (!state.processes.has(pid)) {
@@ -792,7 +788,6 @@
   clearBtn.addEventListener('click', () => {
     eventsBody.innerHTML = '';
     blockedContainer.innerHTML = '';
-    state.events = [];
     state.processes.clear();
     state.total = state.blocked = state.allowed = 0;
     statTotal.textContent = statBlocked.textContent = statAllowed.textContent = 0;
