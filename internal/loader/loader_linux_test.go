@@ -4,12 +4,10 @@ package loader
 
 import (
 	"encoding/binary"
-	"io/fs"
 	"net"
 	"os"
 	"path/filepath"
 	"testing"
-	"testing/fstest"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -149,61 +147,102 @@ func TestDecodeEvent_fields(t *testing.T) {
 	assert.Equal(t, int64(1), e.Timestamp.Unix(), "timestamp")
 }
 
-// TestGlobExpandWalk_SkipsPseudoFS verifies top-level proc/sys/dev are pruned.
+// walkTestTree builds a real directory tree for walk tests: pseudo-fs lookalikes,
+// real credential dirs, a nested same-named dir, and a symlink cycle.
+func walkTestTree(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	mkfile := func(rel string) {
+		p := filepath.Join(root, filepath.FromSlash(rel))
+		require.NoError(t, os.MkdirAll(filepath.Dir(p), 0o755))
+		require.NoError(t, os.WriteFile(p, []byte("x"), 0o600))
+	}
+	mkfile("proc/self/exe")
+	mkfile("sys/kernel/x")
+	mkfile("dev/null")
+	mkfile("home/alice/.aws/credentials")
+	mkfile("home/alice/dev/keep.txt")
+	mkfile("opt/data/.aws/config")
+	mkfile("a/real.txt")
+	mkfile("b/real.txt")
+	require.NoError(t, os.Symlink("../b", filepath.Join(root, "a", "loop")))
+	require.NoError(t, os.Symlink("../a", filepath.Join(root, "b", "loop")))
+	return root
+}
+
+// TestWalkCollect_SkipsPseudoFS verifies top-level proc/sys/dev are pruned.
 // Regression test for the CI micro-VM hang: /**/ patterns walked the entire
 // shared host root (10-minute go test timeout inside expandDeniedPaths →
-// doublestar FilepathGlob, proven by the CI stack trace).
-func TestGlobExpandWalk_SkipsPseudoFS(t *testing.T) {
-	fsys := fstest.MapFS{
-		"proc/self/exe":               {},
-		"sys/kernel/x":                {},
-		"dev/null":                    {},
-		"home/alice/.aws/credentials": {},
-		"opt/data/.aws/config":        {},
+// doublestar FilepathGlob, proven by the CI stack trace; the first GlobWalk
+// attempt could not prune because its callback only fires for matches).
+func TestWalkCollect_SkipsPseudoFS(t *testing.T) {
+	root := walkTestTree(t)
+	skip := map[string]bool{
+		filepath.Join(root, "proc"): true,
+		filepath.Join(root, "sys"):  true,
+		filepath.Join(root, "dev"):  true,
 	}
-	got, err := globExpandWalkFS(fsys, "/**/.aws/**")
+	got, err := walkCollect(root, filepath.Join(root, "**", ".aws", "**"), skip)
 	require.NoError(t, err)
 	for _, p := range got {
-		assert.NotContains(t, p, "/proc/", "pseudo-fs must be pruned: %s", p)
-		assert.NotContains(t, p, "/sys/", "pseudo-fs must be pruned: %s", p)
-		assert.NotContains(t, p, "/dev/", "pseudo-fs must be pruned: %s", p)
+		assert.NotContains(t, p, string(filepath.Separator)+"proc"+string(filepath.Separator), "pseudo-fs must be pruned: %s", p)
+		assert.NotContains(t, p, string(filepath.Separator)+"sys"+string(filepath.Separator), "pseudo-fs must be pruned: %s", p)
+		assert.NotContains(t, p, string(filepath.Separator)+"dev"+string(filepath.Separator), "pseudo-fs must be pruned: %s", p)
 	}
-	assert.Contains(t, got, "/home/alice/.aws/credentials")
-	assert.Contains(t, got, "/opt/data/.aws/config")
+	assert.Contains(t, got, filepath.Join(root, "home", "alice", ".aws", "credentials"))
+	assert.Contains(t, got, filepath.Join(root, "opt", "data", ".aws", "config"))
 }
 
-// TestGlobExpandWalk_NestedSameNameWalks verifies pruning is top-level only:
+// TestWalkCollect_NestedSameNameWalks verifies pruning is top-level only:
 // a nested directory named like a pseudo-fs still walks.
-func TestGlobExpandWalk_NestedSameNameWalks(t *testing.T) {
-	fsys := fstest.MapFS{
-		"home/alice/dev/keep.txt": {},
-	}
-	got, err := globExpandWalkFS(fsys, "/**/keep.txt")
+func TestWalkCollect_NestedSameNameWalks(t *testing.T) {
+	root := walkTestTree(t)
+	got, err := walkCollect(root, filepath.Join(root, "**", "keep.txt"), map[string]bool{})
 	require.NoError(t, err)
-	assert.Equal(t, []string{"/home/alice/dev/keep.txt"}, got)
+	assert.Equal(t, []string{filepath.Join(root, "home", "alice", "dev", "keep.txt")}, got)
 }
 
-// TestGlobExpandWalk_SymlinkCycleTerminates verifies symlinked dir loops
-// cannot hang the walk (NoFollow): completion itself is the assertion.
-func TestGlobExpandWalk_SymlinkCycleTerminates(t *testing.T) {
-	fsys := fstest.MapFS{
-		"a/real.txt": {},
-		"b/real.txt": {},
-		"a/loop":     {Mode: fs.ModeSymlink, Data: []byte("../b")},
-		"b/loop":     {Mode: fs.ModeSymlink, Data: []byte("../a")},
-	}
+// TestWalkCollect_SymlinkCycleTerminates verifies symlinked dir loops cannot
+// hang the walk (WalkDir never descends into symlinks): completion itself is
+// the assertion.
+func TestWalkCollect_SymlinkCycleTerminates(t *testing.T) {
+	root := walkTestTree(t)
 	done := make(chan []string, 1)
 	go func() {
-		got, err := globExpandWalkFS(fsys, "/**/real.txt")
+		got, err := walkCollect(root, filepath.Join(root, "**", "real.txt"), map[string]bool{})
 		require.NoError(t, err)
 		done <- got
 	}()
 	select {
 	case got := <-done:
-		assert.ElementsMatch(t, []string{"/a/real.txt", "/b/real.txt"}, got)
+		assert.ElementsMatch(t, []string{
+			filepath.Join(root, "a", "real.txt"),
+			filepath.Join(root, "b", "real.txt"),
+		}, got)
 	case <-time.After(30 * time.Second):
 		t.Fatal("walk did not terminate: symlink cycle followed")
 	}
+}
+
+// TestWalkRoot verifies literal-prefix scoping: /**/ walks from /, prefixed
+// patterns walk from their literal directory only.
+func TestWalkRoot(t *testing.T) {
+	assert.Equal(t, "/", walkRoot("/**/.aws/**"))
+	assert.Equal(t, "/root/.ssh", walkRoot("/root/.ssh/**"))
+	assert.Equal(t, "/home", walkRoot("/home/*/.ssh/**"))
+	assert.Equal(t, "/etc", walkRoot("/etc/*.d/**"))
+}
+
+// TestExpandDeniedPaths_Memoized verifies repeat expansion returns equal
+// results (process-lifetime snapshot shared across Loads).
+func TestExpandDeniedPaths_Memoized(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "a.txt"), []byte("a"), 0o600))
+	pattern := filepath.Join(dir, "*.txt")
+	first := expandDeniedPaths(pattern)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "b.txt"), []byte("b"), 0o600))
+	second := expandDeniedPaths(pattern)
+	assert.Equal(t, first, second, "memoized snapshot must be stable within the process")
 }
 
 // TestDecodeEvent_tooShort verifies an error is returned for truncated input.

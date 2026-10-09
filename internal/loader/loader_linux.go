@@ -377,6 +377,13 @@ func expandDeniedPaths(pattern string) []string {
 	if !hasGlobMeta(pattern) {
 		return []string{pattern}
 	}
+	expandCacheMu.Lock()
+	if hit, ok := expandCache[pattern]; ok {
+		out := append([]string(nil), hit...)
+		expandCacheMu.Unlock()
+		return out
+	}
+	expandCacheMu.Unlock()
 	matches, err := globExpand(pattern)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "aks: warning: denied_paths pattern %q: %v, skipping\n", pattern, err)
@@ -386,8 +393,19 @@ func expandDeniedPaths(pattern string) []string {
 		fmt.Fprintf(os.Stderr, "aks: warning: denied_paths pattern %q matched no files, skipping\n", pattern)
 		return nil
 	}
+	expandCacheMu.Lock()
+	expandCache[pattern] = matches
+	expandCacheMu.Unlock()
 	return matches
 }
+
+// expandCacheMu guards expandCache. Matches are memoized per process:
+// profiles snapshot at load and Loads are rare (the daemon loads once),
+// while e2e loads the same profile per test — without this, every Load
+// re-walks the filesystem for every ** pattern. Callers get a copy so
+// they cannot mutate the cached snapshot.
+var expandCacheMu sync.Mutex
+var expandCache = map[string][]string{}
 
 // hasGlobMeta reports whether pattern contains glob metacharacters.
 func hasGlobMeta(pattern string) bool {
@@ -412,38 +430,61 @@ func globExpand(pattern string) ([]string, error) {
 	return filepath.Glob(pattern)
 }
 
-// expandSkipTopDirs are top-level pseudo-filesystems pruned during **
-// expansion: they hold no denylist targets (credentials/keys/ssh live on
-// persistent storage), self-links make them effectively infinite
-// (/proc/self), and in CI the shared host root dwarfs the walk. Only the
-// top level is pruned — nested same-named directories still walk.
-func isExpandSkip(path string) bool {
-	switch path {
-	case "proc", "sys", "dev":
-		return true
+// walkRoot returns the longest literal directory prefix of an absolute **
+// pattern to scope traversal (e.g. "/root/.ssh" for "/root/.ssh/**", "/"
+// for "/**/.aws/**"). The prefix always ends at a segment boundary, so it
+// is a directory (or a non-existent path, which yields no matches).
+func walkRoot(pattern string) string {
+	segs := strings.Split(strings.TrimPrefix(pattern, "/"), "/")
+	var lit []string
+	for _, s := range segs {
+		if strings.ContainsAny(s, "*?[{") {
+			break
+		}
+		lit = append(lit, s)
 	}
-	return false
+	if len(lit) == 0 {
+		return "/"
+	}
+	return "/" + filepath.Join(lit...)
 }
 
-// globExpandWalk runs a root-anchored ** pattern from the filesystem root,
-// pruning pseudo-filesystems and never following symlinks (cycle-proof: a
-// symlinked dir loop cannot hang the walk). Returned paths are absolute.
+// pseudoTopDirs prunes top-level pseudo-filesystems during ** expansion:
+// they hold no denylist targets (credentials/keys/ssh live on persistent
+// storage) and self-links make them effectively infinite (/proc/self).
+// Only these exact top-level paths are pruned — nested same-named
+// directories still walk.
+var pseudoTopDirs = map[string]bool{"/proc": true, "/sys": true, "/dev": true}
+
+// globExpandWalk runs a root-anchored ** pattern with a real directory walk:
+// true pruning (unlike doublestar.GlobWalk, whose callback only fires for
+// matches and therefore cannot prune unmatched subtrees), no symlink
+// descent (cycle-proof: WalkDir uses Lstat), unreadable dirs skipped.
+// Returned paths are absolute.
 func globExpandWalk(pattern string) ([]string, error) {
-	return globExpandWalkFS(os.DirFS("/"), pattern)
+	return walkCollect(walkRoot(pattern), pattern, pseudoTopDirs)
 }
 
-// globExpandWalkFS is the testable core: fsys-rooted walk with the same
-// pruning. Pattern may carry a leading "/" (stripped for the rooted FS).
-func globExpandWalkFS(fsys fs.FS, pattern string) ([]string, error) {
-	rel := strings.TrimPrefix(pattern, "/")
+// walkCollect is the testable core: WalkDir from root, pruning skip dirs,
+// matching every visited path against pattern with doublestar.Match.
+func walkCollect(root, pattern string, skip map[string]bool) ([]string, error) {
 	var matches []string
-	err := doublestar.GlobWalk(fsys, rel, func(path string, d fs.DirEntry) error {
-		if d.IsDir() && isExpandSkip(path) {
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil // unreadable/vanished: skip, keep walking
+		}
+		if d.IsDir() && skip[path] {
 			return fs.SkipDir
 		}
-		matches = append(matches, "/"+path)
+		ok, merr := doublestar.Match(pattern, path)
+		if merr != nil {
+			return merr
+		}
+		if ok {
+			matches = append(matches, path)
+		}
 		return nil
-	}, doublestar.WithNoFollow())
+	})
 	if err != nil {
 		return nil, err
 	}
