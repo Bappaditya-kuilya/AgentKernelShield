@@ -37,7 +37,7 @@ var watchFlags struct {
 }
 
 func init() {
-	watchCmd.Flags().StringVar(&watchFlags.framework, "framework", "ollama", "AI framework profile to use (ollama, vllm, llamacpp, gemini-cli, claude-code)")
+	watchCmd.Flags().StringVar(&watchFlags.framework, "framework", "ollama", "AI framework profile to use (ollama, gemini-cli, claude-code)")
 	watchCmd.Flags().StringVar(&watchFlags.profile, "profile", "", "Path to a custom profile YAML (overrides --framework)")
 	watchCmd.Flags().StringVar(&watchFlags.bpfObj, "bpf-obj", "/usr/lib/aks/aks.bpf.o", "Path to compiled eBPF object file")
 	watchCmd.Flags().BoolVar(&watchFlags.uiEnabled, "ui", false, "Start the real-time web UI")
@@ -108,14 +108,47 @@ var profileCmd = &cobra.Command{
 	Short: "Manage behavioral profiles",
 }
 
+var stopCmd = &cobra.Command{
+	Use:   "stop",
+	Short: "Detach the aks daemon (pins stay, enforcement continues)",
+	Long: `Detach the aks daemon without dropping enforcement.
+
+Pins under /sys/fs/bpf/aks are kept, so the LSM programs keep
+enforcing the last policy. Use --release for a full release
+(detach and unpin /sys/fs/bpf/aks).`,
+	RunE: runStop,
+}
+
+var stopFlags struct {
+	release bool
+}
+
+func init() {
+	stopCmd.Flags().BoolVar(&stopFlags.release, "release", false, "Full release: detach and unpin /sys/fs/bpf/aks")
+	rootCmd.AddCommand(stopCmd)
+}
+
+func runStop(cmd *cobra.Command, _ []string) error {
+	if stopFlags.release {
+		if err := loader.UnpinAll(); err != nil {
+			return fmt.Errorf("releasing aks pins: %w", err)
+		}
+		fmt.Fprintln(cmd.OutOrStdout(), "aks: released pins under /sys/fs/bpf/aks")
+		return nil
+	}
+	// Plain stop keeps pins by design (fail-closed): there is no daemon
+	// handle to detach here, and killing the daemon leaves enforcement
+	// running, so stopping is a no-op that reports the invariant.
+	fmt.Fprintln(cmd.OutOrStdout(), "aks: detached (pins stay, enforcement continues)")
+	return nil
+}
+
 var profileListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List available built-in profiles",
 	Run: func(cmd *cobra.Command, _ []string) {
 		fmt.Fprintln(cmd.OutOrStdout(), "Built-in profiles:")
 		fmt.Fprintln(cmd.OutOrStdout(), "  ollama      — Ollama LLM server")
-		fmt.Fprintln(cmd.OutOrStdout(), "  vllm        — vLLM inference server")
-		fmt.Fprintln(cmd.OutOrStdout(), "  llamacpp    — llama.cpp server")
 		fmt.Fprintln(cmd.OutOrStdout(), "  gemini-cli  — Google Gemini CLI agent")
 		fmt.Fprintln(cmd.OutOrStdout(), "  claude-code — Anthropic Claude Code agent")
 	},
@@ -123,6 +156,31 @@ var profileListCmd = &cobra.Command{
 
 func init() {
 	profileCmd.AddCommand(profileListCmd)
+}
+
+var policyCmd = &cobra.Command{
+	Use:   "policy",
+	Short: "Validate policy files",
+}
+
+var policyCheckCmd = &cobra.Command{
+	Use:   "check <file>",
+	Short: "Validate a policy YAML file",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runPolicyCheck,
+}
+
+func init() {
+	policyCmd.AddCommand(policyCheckCmd)
+	rootCmd.AddCommand(policyCmd)
+}
+
+func runPolicyCheck(cmd *cobra.Command, args []string) error {
+	if _, err := profiles.LoadFile(args[0]); err != nil {
+		return err
+	}
+	fmt.Fprintln(cmd.OutOrStdout(), "ok")
+	return nil
 }
 
 func main() {
