@@ -34,6 +34,7 @@ Audit log / SIEM
 - **Process lineage** (`bpf/probe.c`): tracks agent process trees by PID — follows forks and execs so child processes (`node`, `sh`, `git`) are attributed to the correct agent
 - **Profiles** (`profiles/`): YAML files defining allowed paths, networks, and commands per framework
 - **Detector** (`internal/detector`): evaluates kernel events against the loaded profile
+- **Tool switching** (`internal/switch`, `middleware/python/aks_client.py`): per-tool profiles via `enter_tool`/`exit_tool` over `/run/aks/aks.sock` (VM-gated)
 - **Audit** (`internal/audit`): one JSON line per decision, stdout or file
 - **Web UI** (`internal/ui`): real-time event feed with BLOCK/ALLOW badges, served over SSE
 
@@ -56,7 +57,7 @@ Audit log / SIEM
 - Boot param: `lsm=bpf` (add to `GRUB_CMDLINE_LINUX` in `/etc/default/grub`)
 - `clang`, `llvm`, `bpftool`, `linux-headers`
 - Root privileges to load eBPF programs
-- Go 1.22+
+- Go 1.24+
 
 ## Quick start
 
@@ -75,6 +76,12 @@ sudo aks watch --profile /path/to/custom.yaml
 
 # List available profiles
 aks profile list
+
+# Validate a policy file (strict schema, line+reason errors)
+aks policy check ./profiles/ollama.yaml
+
+# Stop enforcement (pins stay, fail-closed); --release also unpins
+sudo aks stop [--release]
 ```
 
 ## Output
@@ -123,18 +130,25 @@ make test-unit
 # Integration / e2e test (Linux + root, requires BPF LSM enabled)
 make test-integration
 # = make bpf + sudo go test -tags integration ./test/e2e/
+
+# Bypass suite: evasion vectors (VM-only, same requirements as e2e)
+# sudo go test -tags integration -run TestBypass ./test/e2e/
+
+# Middleware unit tests (no root needed)
+# cd middleware/python && python3 -m unittest
 ```
 
 How to test blocking manually (no agent needed):
 
 ```bash
 make bpf && make build
-sudo ./aks watch --profile ./test-gemini.yaml --bpf-obj bpf/aks.bpf.o &
+echo demo-secret > /tmp/secret.txt
+sudo ./aks watch --profile ./test-gemini.yaml --bpf-obj bpf/aks.bpf.o > /tmp/aks-gemini.jsonl &
 # in another shell (unwatched, should succeed):
-cat blockme.txt
+cat /tmp/secret.txt
 # via watched tree — run through gemini CLI:
-# > read @blockme.txt   # expect BLOCK file_open /home/kisuke/AKS/blockme.txt + EPERM
-grep BLOCK /var/log/aks-gemini.jsonl
+# > read @/tmp/secret.txt   # expect BLOCK file_open /tmp/secret.txt + EPERM
+grep BLOCK /tmp/aks-gemini.jsonl
 ```
 
 ## Demo
