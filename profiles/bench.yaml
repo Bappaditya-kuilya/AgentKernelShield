@@ -1,0 +1,25 @@
+name: bench
+version: "1.0"
+description: Overhead-measurement profile for test/bench/bench.sh. NOT for enforcement.
+
+# entry_comm names a process that never runs. BPF pid_is_watched() then
+# returns 0 for every real PID, so the attached LSM/tracepoint hooks take
+# the allow fast-path (bpf/lsm.c, bpf/probe.c) and the bench workloads run
+# unimpeded UNDER the hooks — that fast-path cost is what the benchmark
+# measures. Using an agent profile here (e.g. ollama.yaml, which has no
+# entry_comm = watch-all + default-deny) polices the workloads themselves:
+# the detector BLOCKs /bin/true and /etc/ld.so.cache, and the LSM hook
+# genuinely denies `python3 -c` via the expanded /usr/bin/python3.* denylist.
+# Writing this value also overwrites any stale entry_comm left in the shared
+# pinned map (/sys/fs/bpf/aks) by a previous run.
+entry_comm: aks-bench-idle
+
+# Default policy is kept at deny to mirror production shape, but with
+# nothing watched and an empty denylist nothing can match it.
+default_policy: deny
+denied_paths: []
+allowed_paths: []
+allowed_networks:
+  - 127.0.0.0/8
+  - ::1/128
+allowed_commands: []

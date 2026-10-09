@@ -243,7 +243,7 @@ int BPF_PROG(aks_socket_connect, struct socket *sock, struct sockaddr *address, 
 
 	// Non-IP families (e.g. AF_UNIX) stay out of scope — no opinion (FR-11).
 	if (address->sa_family != AF_INET && address->sa_family != AF_INET6)
-		return 0;
+		return 0; // non-IP family (e.g. AF_UNIX) — no opinion, never override other LSMs (FR-11)
 
 	// Phase 4: IPv6 denylist mirror of the IPv4 path below. Loopback and any
 	// non-blocked v6 destination falls through to allow — the Go detector
