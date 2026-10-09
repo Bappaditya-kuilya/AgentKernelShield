@@ -14,6 +14,8 @@
   (non-palindrome `2001:db8::1234`, `::1` via wire path). New `test/e2e`
   bypass suite (shebang, symlink, execveat, `-c` flags, fork-storm) and
   `test/bench/bench.sh` skeleton — both VM-only, not yet run.
+- UI: Agent tab (task timeline + process tree over live SSE) with `?demo=1`
+  replay of a scripted Gemini session (`demo-session.json`, shape-tested).
 - Dead-code pass (unit-verified here): removed `Verdict.String`,
   `Event.String` (+tests), `Loader.Release` (linux+stub), UI `state.events`
   store + `tableContainer` id, Makefile `generate` PHONY, `MAX_ARGV_LEN`,

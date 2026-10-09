@@ -1,0 +1,26 @@
+{
+  "meta": {
+    "kind": "replay",
+    "label": "REPLAY — scripted Gemini CLI demo session (no live agent)",
+    "agent": "gemini",
+    "profile": "gemini-cli",
+    "task": "Summarize the docs folder into report.md",
+    "tools": [
+      {"name": "read_docs", "pids": [1001], "fs": "read_only"},
+      {"name": "write_report", "pids": [1002], "fs": "read_write"}
+    ]
+  },
+  "events": [
+    {"ts": "2026-01-01T00:00:00Z", "pid": 1000, "ppid": 500, "comm": "gemini", "event": "exec", "action": "ALLOW", "reason": "matches allowed path pattern", "path": "/usr/bin/gemini"},
+    {"ts": "2026-01-01T00:00:02Z", "pid": 1001, "ppid": 1000, "comm": "node", "event": "exec", "action": "ALLOW", "reason": "matches allowed path pattern", "path": "/usr/bin/node"},
+    {"ts": "2026-01-01T00:00:03Z", "pid": 1001, "ppid": 1000, "comm": "node", "event": "file_open", "action": "ALLOW", "reason": "matches allowed path pattern", "path": "/home/user/docs/README.md"},
+    {"ts": "2026-01-01T00:00:04Z", "pid": 1001, "ppid": 1000, "comm": "node", "event": "file_open", "action": "ALLOW", "reason": "matches allowed path pattern", "path": "/home/user/docs/api.md"},
+    {"ts": "2026-01-01T00:00:05Z", "pid": 1001, "ppid": 1000, "comm": "node", "event": "file_open", "action": "BLOCK", "reason": "matches denied path pattern", "path": "/home/user/.aws/credentials"},
+    {"ts": "2026-01-01T00:00:08Z", "pid": 1002, "ppid": 1000, "comm": "python3", "event": "exec", "action": "ALLOW", "reason": "matches allowed path pattern", "path": "/usr/bin/python3"},
+    {"ts": "2026-01-01T00:00:09Z", "pid": 1002, "ppid": 1000, "comm": "python3", "event": "file_open", "action": "ALLOW", "reason": "matches allowed path pattern", "path": "/home/user/report.md"},
+    {"ts": "2026-01-01T00:00:11Z", "pid": 1003, "ppid": 1001, "comm": "curl", "event": "exec", "action": "BLOCK", "reason": "matches denied path pattern", "path": "/usr/bin/curl"},
+    {"ts": "2026-01-01T00:00:12Z", "pid": 1001, "ppid": 1000, "comm": "node", "event": "net_connect", "action": "BLOCK", "reason": "default policy: deny — destination network not in allowlist", "dest_ip": "1.2.3.4", "dest_port": 443},
+    {"ts": "2026-01-01T00:00:14Z", "pid": 1002, "ppid": 1000, "comm": "python3", "event": "file_open", "action": "ALLOW", "reason": "matches allowed path pattern", "path": "/home/user/report.md"},
+    {"ts": "2026-01-01T00:00:15Z", "pid": 1004, "ppid": 1001, "comm": "sh", "event": "exec", "action": "BLOCK", "reason": "matches denied path pattern", "path": "/bin/sh"}
+  ]
+}

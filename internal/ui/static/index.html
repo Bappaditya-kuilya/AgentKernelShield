@@ -8,17 +8,21 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:        #090a0d;
-      --surface:   #0e1013;
-      --raised:    #0e1013;
-      --border:    #1b1e25;
-      --text:      #c4cad3;
-      --muted:     #5f6775;
-      --red:       #ff453a;
-      --green:     #5f6775;
-      --accent:    #c4cad3;
-      --radius:    0px;
-      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+      --bg:        #08090A; /* neutral */
+      --surface:   #0F1011; /* surface */
+      --raised:    #0F1011; /* surface */
+      --border:    #ffffff14; /* border */
+      --outline:   #ffffff1a; /* outline */
+      --text:      #F7F8F8; /* on-surface */
+      --muted:     #A2A7B2; /* muted */
+      --red:       #FF5A5F; /* error */
+      --green:     #2FB344; /* success */
+      --accent:    #7170FF; /* primary */
+      --warn:      #FFCC00; /* warning */
+      --bad:       #FF5A5F; /* error */
+      --radius:    9px;     /* rounded.lg */
+      --mono:      'Berkeley Mono', ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
+      font-family: -apple-system, 'Inter', 'Inter Variable', 'Segoe UI', system-ui, sans-serif;
     }
 
     body {
@@ -94,13 +98,12 @@
     .stat-label {
       font-size: 10px;
       color: var(--muted);
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
+      letter-spacing: 0;
     }
 
     .stat-value.total  { color: var(--text); }
     .stat-value.blocks { color: var(--red); }
-    .stat-value.allows { color: var(--muted); }
+    .stat-value.allows { color: var(--green); }
 
     .conn-status {
       display: flex;
@@ -137,15 +140,15 @@
       color: var(--muted);
       padding: 8px 10px;
       cursor: pointer;
-      font-size: 11px;
+      font-size: 12px;
+      font-weight: 510;
       font-family: inherit;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
+      letter-spacing: 0;
       margin-bottom: -1px;
     }
 
     .tab-btn:hover { color: var(--text); }
-    .tab-btn.active { color: var(--text); border-bottom-color: var(--text); }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
 
     /* blocked tab button turns red when there are blocks */
     .tab-btn.has-blocks { border-bottom-color: var(--red); color: var(--red); }
@@ -153,6 +156,16 @@
     /* ── Tab content panels ── */
     .tab-panel { display: none; flex: 1; flex-direction: column; overflow: hidden; }
     .tab-panel.active { display: flex; }
+    .agent-task { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .agent-task-label { color: var(--muted); font-size: 11px; }
+    .agent-replay-badge { color: var(--warn); border: 1px solid currentColor; border-radius: 9999px; padding: 0 8px; font-size: 10px; }
+    .agent-replaybar { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-bottom: 1px solid var(--border); }
+    .agent-replay-note { color: var(--muted); font-size: 11px; }
+    .agent-timeline { flex: 1; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+    .tool-card { background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 12px 16px 16px; cursor: pointer; }
+    .tool-card-name { font-weight: 600; font-size: 13px; }
+    .tool-card-sub { color: var(--muted); font-size: 11px; margin-top: 2px; }
+    .tool-card-blocks { color: var(--bad); font-size: 12px; margin-top: 4px; }
 
     /* ── Toolbar: text-only filters ── */
     .toolbar {
@@ -176,16 +189,16 @@
       color: var(--muted);
       padding: 2px 6px;
       cursor: pointer;
-      font-size: 11px;
+      font-size: 12px;
+      font-weight: 510;
       font-family: inherit;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
+      letter-spacing: 0;
     }
 
     .filter-btn:hover { color: var(--text); }
-    .filter-btn.active { color: var(--text); border-bottom-color: var(--text); }
+    .filter-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
     .filter-btn.action-block.active { color: var(--red); border-bottom-color: var(--red); }
-    .filter-btn.action-allow.active { color: var(--text); border-bottom-color: var(--text); }
+    .filter-btn.action-allow.active { color: var(--green); border-bottom-color: var(--green); }
     .filter-btn.type-file.active,
     .filter-btn.type-exec.active,
     .filter-btn.type-net.active,
@@ -220,12 +233,11 @@
     th {
       padding: 6px 10px;
       text-align: left;
-      font-size: 10px;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0;
       color: var(--muted);
       border-bottom: 1px solid var(--border);
-      font-weight: 500;
+      font-weight: 510;
     }
 
     th.col-time    { width: 70px; }
@@ -252,8 +264,8 @@
 
     tr.row-allow { border-left: 2px solid transparent; cursor: pointer; }
 
-    .time-cell    { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
-    .pid-cell     { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+    .time-cell    { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; font-family: var(--mono); }
+    .pid-cell     { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; font-family: var(--mono); }
     .process-cell { color: var(--text); font-weight: 500; }
 
     .badge {
@@ -269,7 +281,7 @@
     .badge-net,
     .badge-ssl  { background: none; color: var(--muted); }
 
-    .detail-cell { color: var(--muted); font-size: 11px; }
+    .detail-cell { color: var(--muted); font-size: 11px; font-family: var(--mono); }
     tr.row-block .detail-cell { color: var(--text); }
     .detail-cell .dest { color: inherit; }
     .detail-cell .ssl-preview { color: var(--muted); font-size: 11px; }
@@ -289,7 +301,7 @@
     .action-allow {
       display: inline;
       padding: 0;
-      color: var(--muted);
+      color: var(--green);
       font-size: 10px;
       font-weight: 400;
       letter-spacing: 0.5px;
@@ -420,21 +432,22 @@
 <div class="tab-bar">
   <button class="tab-btn active" data-tab="log">Log</button>
   <button class="tab-btn" data-tab="blocked" id="blockedTabBtn">Blocked</button>
+  <button class="tab-btn" data-tab="agent" id="agentTabBtn">Agent</button>
 </div>
 
 <!-- ── LOG TAB ── -->
 <div class="tab-panel active" id="panel-log">
   <div class="toolbar">
     <div class="filter-group">
-      <button class="filter-btn active" data-filter="action" data-value="all">ALL</button>
-      <button class="filter-btn action-block" data-filter="action" data-value="BLOCK">BLOCK</button>
-      <button class="filter-btn action-allow" data-filter="action" data-value="ALLOW">ALLOW</button>
+      <button class="filter-btn active" data-filter="action" data-value="all">All</button>
+      <button class="filter-btn action-block" data-filter="action" data-value="BLOCK">Block</button>
+      <button class="filter-btn action-allow" data-filter="action" data-value="ALLOW">Allow</button>
     </div>
     <div class="divider"></div>
     <div class="filter-group">
-      <button class="filter-btn type-file" data-filter="type" data-value="file_open">FILE</button>
-      <button class="filter-btn type-exec" data-filter="type" data-value="exec">EXEC</button>
-      <button class="filter-btn type-net"  data-filter="type" data-value="net_connect">NET</button>
+      <button class="filter-btn type-file" data-filter="type" data-value="file_open">File</button>
+      <button class="filter-btn type-exec" data-filter="type" data-value="exec">Exec</button>
+      <button class="filter-btn type-net"  data-filter="type" data-value="net_connect">Net</button>
       <button class="filter-btn type-ssl"  data-filter="type" data-value="ssl_data">SSL</button>
     </div>
     <span id="pidFilterLabel" style="display:none; font-size:11px; color:var(--muted); margin-left:8px;"></span>
@@ -470,11 +483,32 @@
   <div class="blocked-container" id="blockedContainer" style="display:none"></div>
 </div>
 
+<!-- ── AGENT TAB ── -->
+<div class="tab-panel" id="panel-agent">
+  <div class="agent-task" id="agentTask">
+    <span class="agent-task-label">task</span>
+    <span id="agentTaskText">— waiting for agent activity —</span>
+    <span class="agent-replay-badge" id="agentReplayBadge" style="display:none">REPLAY</span>
+  </div>
+  <div class="agent-replaybar" id="agentReplayBar" style="display:none">
+    <button class="filter-btn" id="replayPlay">pause</button>
+    <button class="filter-btn" id="replayRestart">restart</button>
+    <button class="filter-btn" id="replaySpeed">1×</button>
+    <span class="agent-replay-note">scripted demo data, same render path as live</span>
+  </div>
+  <div class="empty" id="agentEmpty">
+    <div class="empty-text">— no agent activity yet —</div>
+  </div>
+  <div class="agent-timeline" id="agentTimeline" style="display:none"></div>
+</div>
+
 <script>
   const MAX_ROWS = 500;
 
   const state = {
     processes:   new Map(), // pid → {pid, ppid, comm, blockedEvents:[]}
+    agentProcs:  new Map(), // pid → {pid, ppid, comm, events:[]}
+    agentMeta:   null,      // {task, agent, profile, tools:[{name,pids,fs}]}
     total:       0,
     blocked:     0,
     allowed:     0,
@@ -533,9 +567,9 @@
 
   function typeBadge(evt) {
     const map = {
-      file_open:   ['FILE', 'badge-file'],
-      exec:        ['EXEC', 'badge-exec'],
-      net_connect: ['NET',  'badge-net'],
+      file_open:   ['File', 'badge-file'],
+      exec:        ['Exec', 'badge-exec'],
+      net_connect: ['Net',  'badge-net'],
       ssl_data:    ['SSL',  'badge-ssl'],
     };
     const [label, cls] = map[evt.event] || [evt.event, ''];
@@ -578,8 +612,8 @@
       <td class="detail-cell">${detail(evt)}</td>
       <td class="action-cell">
         ${isBlock
-          ? `<span class="action-block">■ BLOCK</span>`
-          : `<span class="action-allow">ALLOW</span>`}
+          ? `<span class="action-block">■ Block</span>`
+          : `<span class="action-allow">Allow</span>`}
       </td>`;
 
     // Click: if blocked, jump to Blocked tab for this PID;
@@ -677,7 +711,7 @@
           <span class="blocked-proc-pid">${proc.pid}</span>
           <span class="blocked-proc-comm">${escHtml(proc.comm)}</span>
           ${ppidStr}
-          <span class="blocked-proc-badge">${proc.blockedEvents.length} BLOCKED</span>
+          <span class="blocked-proc-badge">${proc.blockedEvents.length} Blocked</span>
           <span class="blocked-proc-hint">click to filter log</span>
         </div>
         <div class="blocked-events">
@@ -716,6 +750,7 @@
 
     // Update process map
     const pid = evt.pid;
+    ingestAgent(evt);
     if (!state.processes.has(pid)) {
       state.processes.set(pid, { pid, ppid: evt.ppid || 0, comm: evt.comm, blockedEvents: [] });
     }
@@ -746,6 +781,147 @@
     }
   }
 
+  // ── Agent tab: how the agent works ───────────────────────────────────────
+  // Same events as Log/Blocked, grouped by process tree. Tool names come
+  // from replay metadata when present; live mode labels each top-level
+  // child subtree as one tool execution.
+  function ingestAgent(evt) {
+    if (!state.agentProcs.has(evt.pid)) {
+      state.agentProcs.set(evt.pid, { pid: evt.pid, ppid: evt.ppid || 0, comm: evt.comm, events: [] });
+    }
+    state.agentProcs.get(evt.pid).events.push(evt);
+    if (state.activeTab === 'agent') renderAgent();
+  }
+
+  function agentRoot() {
+    for (const p of state.agentProcs.values()) {
+      if (!p.ppid || !state.agentProcs.has(p.ppid)) return p;
+    }
+    return state.agentProcs.values().next().value || null;
+  }
+
+  function toolNameFor(pid, idx) {
+    const tools = (state.agentMeta && state.agentMeta.tools) || [];
+    const hit = tools.find(t => (t.pids || []).includes(pid));
+    if (hit) return `${hit.name} · ${hit.fs || ''}`.trim();
+    return `tool ${idx}`;
+  }
+
+  function renderAgent() {
+    const box = document.getElementById('agentTimeline');
+    const empty = document.getElementById('agentEmpty');
+    const taskText = document.getElementById('agentTaskText');
+    const root = agentRoot();
+    if (!root) {
+      empty.style.display = 'flex';
+      box.style.display = 'none';
+      return;
+    }
+    empty.style.display = 'none';
+    box.style.display = 'flex';
+    taskText.textContent = state.agentMeta && state.agentMeta.task
+      ? `${state.agentMeta.task} — ${state.agentMeta.agent || ''} (${state.agentMeta.profile || ''})`.trim()
+      : `${root.comm} tree · live`;
+
+    const kids = [...state.agentProcs.values()]
+      .filter(p => p.pid !== root.pid)
+      .sort((a, b) => new Date(a.events[0].ts) - new Date(b.events[0].ts));
+    // Every non-root process gets a card (children and grandchildren alike),
+    // so nested tool-spawned processes (curl, sh) never vanish. Tool names
+    // come from replay metadata when the pid matches, else tool N.
+    const groups = kids;
+    box.innerHTML = '';
+    // Root card: the agent process itself
+    box.appendChild(agentCard('agent · ' + root.comm, root, -1));
+    groups.forEach((p, i) => box.appendChild(agentCard(toolNameFor(p.pid, i + 1), p, p.pid)));
+  }
+
+  function agentCard(name, proc, filterPid) {
+    const evts = proc.events;
+    const blocks = evts.filter(e => e.action === 'BLOCK');
+    const first = evts[0], last = evts[evts.length - 1];
+    const card = document.createElement('div');
+    card.className = 'tool-card';
+    card.innerHTML = `
+      <div class="tool-card-name">${escHtml(name)} <span class="tool-card-sub">${proc.pid} (${escHtml(proc.comm)})</span></div>
+      <div class="tool-card-sub">${evts.length} events · ${evts.length - blocks.length} allow · ${blocks.length} block · ${escHtml(String(first.ts))} → ${escHtml(String(last.ts))}</div>
+      ${blocks.map(e => `<div class="tool-card-blocks">■ ${escHtml(eventDetail(e))} — ${escHtml(e.reason || '')}</div>`).join('')}`;
+    card.addEventListener('click', () => setPidFilter(proc.pid, proc.comm));
+    return card;
+  }
+
+  // ── Replay mode (?demo=1): scripted Gemini session through addEvent ───────
+  const replay = { data: null, idx: 0, timer: null, speed: 1, playing: false };
+  const REPLAY_STEP_MS = 900;
+
+  function resetAll() {
+    eventsBody.innerHTML = '';
+    blockedContainer.innerHTML = '';
+    state.processes.clear();
+    state.agentProcs.clear();
+    state.total = state.blocked = state.allowed = 0;
+    statTotal.textContent = statBlocked.textContent = statAllowed.textContent = 0;
+    emptyState.style.display    = 'flex';
+    eventsTable.style.display   = 'none';
+    blockedEmpty.style.display    = 'flex';
+    blockedContainer.style.display = 'none';
+    blockedTabBtn.classList.remove('has-blocks');
+    state.filterPid = null;
+    pidFilterLabel.style.display = 'none';
+    clearPidFilter.style.display = 'none';
+    document.getElementById('agentEmpty').style.display = 'flex';
+    document.getElementById('agentTimeline').style.display = 'none';
+    document.getElementById('agentTimeline').innerHTML = '';
+  }
+
+  function replayTick() {
+    if (!replay.playing || !replay.data) return;
+    if (replay.idx >= replay.data.events.length) {
+      replay.playing = false;
+      document.getElementById('replayPlay').textContent = 'play';
+      return;
+    }
+    addEvent(replay.data.events[replay.idx++]);
+    if (state.activeTab === 'agent') renderAgent();
+    replay.timer = setTimeout(replayTick, REPLAY_STEP_MS / replay.speed);
+  }
+
+  function replaySetPlaying(on) {
+    replay.playing = on;
+    document.getElementById('replayPlay').textContent = on ? 'pause' : 'play';
+    clearTimeout(replay.timer);
+    if (on) replayTick();
+  }
+
+  async function bootReplay() {
+    try {
+      const base = new URL('.', window.location.href).href;
+      const r = await fetch(new URL('demo-session.json', base).href);
+      replay.data = await r.json();
+    } catch (_) { return; }
+    if (!replay.data || !Array.isArray(replay.data.events)) return;
+    state.agentMeta = replay.data.meta || null;
+    document.getElementById('agentReplayBar').style.display = 'flex';
+    document.getElementById('agentReplayBadge').style.display = 'inline';
+    resetAll();
+    state.agentMeta = replay.data.meta || null;
+    replay.idx = 0;
+    switchTab('agent');
+    replaySetPlaying(true);
+  }
+
+  document.getElementById('replayPlay').addEventListener('click', () => replaySetPlaying(!replay.playing));
+  document.getElementById('replayRestart').addEventListener('click', () => {
+    resetAll();
+    state.agentMeta = (replay.data && replay.data.meta) || null;
+    replay.idx = 0;
+    replaySetPlaying(true);
+  });
+  document.getElementById('replaySpeed').addEventListener('click', (e) => {
+    replay.speed = replay.speed >= 4 ? 1 : replay.speed * 2;
+    e.target.textContent = replay.speed + '×';
+  });
+
   // ── Tab switching ──────────────────────────────────────────────────────────
   function switchTab(tab) {
     state.activeTab = tab;
@@ -754,6 +930,7 @@
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     document.getElementById('panel-' + tab).classList.add('active');
     if (tab === 'blocked') renderBlocked();
+    if (tab === 'agent') renderAgent();
   }
 
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -786,19 +963,9 @@
   });
 
   clearBtn.addEventListener('click', () => {
-    eventsBody.innerHTML = '';
-    blockedContainer.innerHTML = '';
-    state.processes.clear();
-    state.total = state.blocked = state.allowed = 0;
-    statTotal.textContent = statBlocked.textContent = statAllowed.textContent = 0;
-    emptyState.style.display    = 'flex';
-    eventsTable.style.display   = 'none';
-    blockedEmpty.style.display    = 'flex';
-    blockedContainer.style.display = 'none';
-    blockedTabBtn.classList.remove('has-blocks');
-    state.filterPid = null;
-    pidFilterLabel.style.display = 'none';
-    clearPidFilter.style.display = 'none';
+    replaySetPlaying(false);
+    replay.idx = 0;
+    resetAll();
   });
 
   // ── SSE connection ─────────────────────────────────────────────────────────
@@ -837,6 +1004,7 @@
 
   loadStatus();
   connect();
+  if (new URLSearchParams(window.location.search).has('demo')) bootReplay();
 </script>
 </body>
 </html>

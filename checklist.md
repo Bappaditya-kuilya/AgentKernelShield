@@ -1,121 +1,74 @@
-# VM + Release Checklist — what "successful build" means, with numbers
+# VM Checklist — fastest path to proven green, in dependency order
 
-Run everything below on the enforcement VM (Ubuntu 24.04, kernel 5.7+,
-`CONFIG_BPF_LSM=y`, `lsm=bpf`, root). Nothing here runs in unprivileged
-containers. Each gate lists the exact command, the passing score, and where
-the score comes from.
+Do the gates in order. Each gate unblocks the next; stop at the first red.
+Nothing here runs in unprivileged containers. Prerequisite: the bounded-glob
+fix must be on main first (`grep -n GlobWalk internal/loader/loader_linux.go`
+non-empty) — without it §3 hangs 10 minutes in `/**/` expansion.
 
-## 0. Host prerequisites
+## 0. Host (2 min)
 
-- [ ] `cat /sys/kernel/security/lsm | grep bpf` → contains `bpf`
-- [ ] `ls /sys/kernel/btf/vmlinux` exists (CO-RE + verifier need BTF)
-- [ ] `go version` → 1.24+, `clang --version`, `bpftool --version` (v7.4.0+), `hyperfine --version`
-- [ ] Recovery GRUB entry WITHOUT `lsm=bpf` exists (spec §16.1)
+- [ ] `cat /sys/kernel/security/lsm | grep bpf`
+- [ ] `ls /sys/kernel/btf/vmlinux`
+- [ ] `go version` ≥1.24, `clang`, `bpftool` ≥7.4, `hyperfine` present
+- [ ] Recovery GRUB entry without `lsm=bpf`
 
-## 1. Unit (pure Go, also runs anywhere)
+## 1. Unit + build (3 min, also runs anywhere)
 
 - [ ] `gofmt -l internal/ test/ cmd/` → empty
-- [ ] `go vet ./internal/... ./cmd/...` → exit 0
-- [ ] `go vet -tags integration ./test/e2e/...` → exit 0
-- [ ] `go test -race -count=1 ./internal/...` → 7/7 packages ok
-      (audit, detector, events, loader, profiles, switch, ui)
+- [ ] `go vet ./internal/... ./cmd/...` + `go vet -tags integration ./test/e2e/` → 0
+- [ ] `go test -race -count=1 ./internal/...` → 7/7 ok
 - [ ] `cd middleware/python && python3 -m unittest` → 5/5 ok
-- [ ] `go build ./...` → exit 0
+- [ ] `go build ./...` → 0
+- [ ] `make bpf` → `bpf/aks.bpf.o` built; verifier clean on 2 kernels;
+      `clang-format --dry-run --Werror bpf/probe.c bpf/lsm.c bpf/headers/common.h` → 0
 
-## 2. BPF build + verifier
+## 2. e2e (one 15-min run covers §2–§4)
 
-- [ ] `make bpf` → exit 0, produces `bpf/aks.bpf.o`
-- [ ] Verifier log clean on the release kernel AND one second kernel
-      (compat matrix: Ubuntu 24.04 current + 1 other). Any `rejected` = fail.
-- [ ] `grep -rn "return 0" bpf/lsm.c` → every hit has a trailing allow comment
-- [ ] `clang-format --dry-run --Werror bpf/probe.c bpf/lsm.c bpf/headers/common.h` → exit 0
+- [ ] `sudo go test -tags integration -v -count=1 ./test/e2e/` →
+      `TestJailbreakEscape` (4 BLOCKs), allow-blob readable, bypass 6/6 denied.
+      Any ALLOWED = file an issue.
+- [ ] EXPECTED-FAIL (do not chase): `TestKill9Survival` step 4 asserts EPERM
+      after `kill -9`, but links are deliberately unpinned (plan Will-NOT) so
+      enforcement stops with the daemon. Pins-exist half passes; EPERM half
+      needs link pinning (future) or a test rework to assert pins only.
+- [ ] MANUAL, no tests exist: read-vs-write (`file_open` has no write-flag
+      check — both denied today) and v6 deny/`::1` allow. Run by hand, confirm
+      in audit log, paste output into the scorecard.
 
-## 3. e2e enforcement (`sudo go test -tags integration -v -count=1 ./test/e2e/`)
+## 3. Switch (unit-proven; no socket server binary exists yet)
 
-- [ ] `TestJailbreakEscape` → ≥4 BLOCK events (`/etc/passwd`, `/etc/shadow`,
-      `8.8.8.8:443`, `/bin/bash` exec) — G1 slice
-- [ ] `TestAllowedOperationsUnblocked` → allow-blob readable (0 false positives)
-- [ ] `TestKill9Survival` → pins survive `kill -9`, `/etc/shadow` still EPERM;
-      `stop --release` empties `/sys/fs/bpf/aks` — G3 proof
-- [ ] MANUAL (UNVERIFIED — no e2e coverage; `aks_file_open` in bpf/lsm.c
-      has no read/write flag check, so current code denies both): `cat
-      /etc/shadow` → expect EPERM + BLOCK event; `echo x | tee -a
-      /etc/shadow` → expect EPERM + BLOCK event; confirm both in audit log
-- [ ] MANUAL (UNVERIFIED — no e2e coverage; BPF `blocked_ipv6` denylist in
-      bpf/lsm.c + Go `MatchIP` allowlist in internal/profiles): connect to
-      denied v6 host → expect BLOCK + event; `curl -g http://[::1]/` →
-      expect ALLOW; confirm both in audit log (Phase 4)
+- [ ] Covered by unit tests only: ack shape, `busy` overlap, crash revert,
+      `<10ms` ack / `<1s` revert (net.Pipe harness). No `aks` subcommand serves
+      `/run/aks/aks.sock`, so there is no VM socket gate to run. Do not invent one.
 
-## 4. Bypass suite (`sudo go test -tags integration -run TestBypass ./test/e2e/`)
+## 4. Bench + soak (same VM session as §2)
 
-- [ ] Shebang, symlink, execveat, `python -c`, `bash -c`, 32× fork-storm →
-      100% denied, exit 0 (G1). Any ALLOWED = fail, file an issue.
-- [ ] Known gaps stay documented, not silently passing: hardlink,
-      memfd+fexecve (need `(dev,ino)` redesign), unix-socket (allowed by
-      design), io_uring (follow-up).
+- [ ] `test/bench/bench.sh` → each workload delta < +5% (G4). Publish the
+      slower direction. Per-hook ns via `bpf_stats_enabled=1` + `bpftool prog
+      show` (disable after; collection costs ~20ns/run).
+- [ ] `test/soak/soak.sh` → 0 false denies; drops SKIP-when-0 is correct
+      (200 opens cannot fill 16MB ringbuf).
+- [ ] No 30-min demo-agent script exists; soak.sh + `demo/run_demo.sh`
+      scenarios are the soak suite. Do not claim a 30-min run without writing it.
 
-## 5. Tool switching (Phase 6 gates)
+## 5. Release (spec §15)
 
-- [ ] Profile switch acked before tool start; ack <10 ms on localhost
-- [ ] Unknown tool → `restricted` profile (fs read_only)
-- [ ] Middleware crash mid-tool → baseline restored <1 s
-- [ ] Overlapping `enter_tool` → `busy`, no state corruption
+- [ ] CI + integration green, logs attached; benchmark numbers pasted into README
+- [ ] CHANGELOG + rollback note accurate; `git log` attribution clean
+- [ ] Tag `vX.Y.Z` (signed) + binary + SHA256 + SBOM; clean-VM smoke test
+      (`install` → `aks watch` → blocked `curl`). Note: CLI is `watch`,
+      not `run`.
 
-## 6. Benchmark (G4: <5% overhead) — `test/bench/bench.sh`
-
-Why <5%: an empty BPF LSM hook already costs ~4% on hot syscalls
-(lsm-perf `file_permission` measurements, Paul Renauld; static-call
-follow-ups gain ~2-3% on UnixBench syscall overhead — LWN 974057). Our
-hooks add map lookups + `bpf_d_path` on top, so <5% end-to-end on
-exec/open/connect is the bar that proves the policy check is cheap
-relative to the unavoidable hook cost.
-Method (hyperfine docs + stability literature):
-- [ ] `--warmup 3`, `--min-runs 10` (hyperfine defaults; 30 reps is the
-      practical minimum for stable claims — Stanojevic et al.)
-- [ ] Same host, same governor, idle machine; report mean ± stddev, never
-      a single run; publish the slower direction, never cherry-pick
-- [ ] `hyperfine` delta on `/bin/true`, `cat /etc/hosts`, `python3 -c pass`
-      (watch vs no-watch) → **each < +5%**
-- [ ] Per-hook cost: `sysctl -w kernel.bpf_stats_enabled=1`, workload,
-      `bpftool prog show` → `run_time_ns / run_cnt` per `aks_*` program
-      (note: stats collection itself adds ~20ns/run — eBPF Summit 2020,
-      Bryce Kahle; disable with `sysctl -w kernel.bpf_stats_enabled=0`
-      after measuring). Sanity bound: mean hook runtime in the low
-      hundreds of ns; anything in µs means a map/d_path problem.
-
-## 7. Soak (FR-14, G2)
-
-- [ ] Demo agent 30 min on baseline → **0 false denies**
-- [ ] Ringbuf-pressure run → denies still happen AND `COUNTERS` drop
-      counter increments with matching deny events (FR-9)
-
-## 8. Release (spec §15)
-
-- [ ] CI green (build, fmt, clippy-equivalent `vet`, unit, deny, audit)
-- [ ] Integration + bypass + race suites pass, logs attached
-- [ ] Benchmark rerun, numbers pasted into README
-- [ ] Verifier passes on target kernels, log attached
-- [ ] CHANGELOG updated; rollback note accurate (`stop --release` + unpin
-      + recovery GRUB)
-- [ ] Tag `vX.Y.Z` (signed) + binary + SHA256 + SBOM; smoke test on clean
-      VM (install → `aks run` → blocked `curl`)
-- [ ] `git log` clean of banned attribution (spec §20.3 hook + CI scan)
-
-## 9. Scorecard (fill on the VM)
+## Scorecard
 
 | Gate | Result | Log |
 |---|---|---|
-| unit 7/7 + middleware 5/5 | | |
-| verifier (2 kernels) | | |
-| e2e 4-vector + allow-blob | | |
-| kill-9 survival | | |
-| read-vs-write | | |
-| v6 deny + ::1 allow | | |
-| bypass 6 vectors | | |
-| switch ack/revert/busy | | |
-| bench <5% + hook ns | | |
-| soak 0 false denies | | |
-| release checklist | | |
+| unit/build/verifier | | |
+| e2e + bypass | | |
+| kill-9 (pins half) | | |
+| manual read-write + v6 | | |
+| bench + soak | | |
+| release | | |
 
-Rollback triggers: any false-deny bricking the demo agent, any in-scope
-bypass succeeding, verifier reject on a supported kernel.
+Rollback triggers: false-deny bricking the demo, any in-scope bypass allowed,
+verifier reject on a supported kernel.
