@@ -4,10 +4,12 @@ package loader
 
 import (
 	"encoding/binary"
+	"io/fs"
 	"net"
 	"os"
 	"path/filepath"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -145,6 +147,63 @@ func TestDecodeEvent_fields(t *testing.T) {
 	assert.Equal(t, "8.8.8.8", e.DestIP.String(), "dest_ip value")
 	// timestamp = boot(epoch) + 1s = Unix second 1
 	assert.Equal(t, int64(1), e.Timestamp.Unix(), "timestamp")
+}
+
+// TestGlobExpandWalk_SkipsPseudoFS verifies top-level proc/sys/dev are pruned.
+// Regression test for the CI micro-VM hang: /**/ patterns walked the entire
+// shared host root (10-minute go test timeout inside expandDeniedPaths →
+// doublestar FilepathGlob, proven by the CI stack trace).
+func TestGlobExpandWalk_SkipsPseudoFS(t *testing.T) {
+	fsys := fstest.MapFS{
+		"proc/self/exe":               {},
+		"sys/kernel/x":                {},
+		"dev/null":                    {},
+		"home/alice/.aws/credentials": {},
+		"opt/data/.aws/config":        {},
+	}
+	got, err := globExpandWalkFS(fsys, "/**/.aws/**")
+	require.NoError(t, err)
+	for _, p := range got {
+		assert.NotContains(t, p, "/proc/", "pseudo-fs must be pruned: %s", p)
+		assert.NotContains(t, p, "/sys/", "pseudo-fs must be pruned: %s", p)
+		assert.NotContains(t, p, "/dev/", "pseudo-fs must be pruned: %s", p)
+	}
+	assert.Contains(t, got, "/home/alice/.aws/credentials")
+	assert.Contains(t, got, "/opt/data/.aws/config")
+}
+
+// TestGlobExpandWalk_NestedSameNameWalks verifies pruning is top-level only:
+// a nested directory named like a pseudo-fs still walks.
+func TestGlobExpandWalk_NestedSameNameWalks(t *testing.T) {
+	fsys := fstest.MapFS{
+		"home/alice/dev/keep.txt": {},
+	}
+	got, err := globExpandWalkFS(fsys, "/**/keep.txt")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"/home/alice/dev/keep.txt"}, got)
+}
+
+// TestGlobExpandWalk_SymlinkCycleTerminates verifies symlinked dir loops
+// cannot hang the walk (NoFollow): completion itself is the assertion.
+func TestGlobExpandWalk_SymlinkCycleTerminates(t *testing.T) {
+	fsys := fstest.MapFS{
+		"a/real.txt": {},
+		"b/real.txt": {},
+		"a/loop":     {Mode: fs.ModeSymlink, Data: []byte("../b")},
+		"b/loop":     {Mode: fs.ModeSymlink, Data: []byte("../a")},
+	}
+	done := make(chan []string, 1)
+	go func() {
+		got, err := globExpandWalkFS(fsys, "/**/real.txt")
+		require.NoError(t, err)
+		done <- got
+	}()
+	select {
+	case got := <-done:
+		assert.ElementsMatch(t, []string{"/a/real.txt", "/b/real.txt"}, got)
+	case <-time.After(30 * time.Second):
+		t.Fatal("walk did not terminate: symlink cycle followed")
+	}
 }
 
 // TestDecodeEvent_tooShort verifies an error is returned for truncated input.

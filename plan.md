@@ -70,6 +70,10 @@ Has BTF + cgroup2 — enough for unit tests only, once a Go toolchain exists.
   `~/.ssh`-style glob target blocked, non-allowlisted exec denied, allow-blob still passes.
   - [x] Unknown-type under both defaults + exec command pins (`detector_test.go`) — EXECUTED 2026-10-09: `go test -race ./internal/...` green.
   - [x] Glob expansion table (`loader_linux_test.go`, 4 temp-dir cases) — EXECUTED 2026-10-09: green in the same run.
+  - [x] Bounded `**` walk (2026-10-09): CI hung 10 min in `FilepathGlob` on
+    `/**/.aws/**` (whole shared host root + followed symlinks). Now
+    `GlobWalk` + `WithNoFollow` (cycle-proof) with top-level proc/sys/dev
+    pruning (nested same-names still walk); 3 MapFS regression tests green.
   - [ ] e2e extend + VM run — OPEN, needs VM.
 - Checkpoint (VM): `make bpf && sudo go test -tags integration -v -count=1 ./test/e2e/` green;
   `bpftool map dump` shows expanded inode keys, zero `*` keys. — OPEN.

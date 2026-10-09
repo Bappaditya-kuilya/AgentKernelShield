@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"os"
 	"path/filepath"
@@ -396,12 +397,57 @@ func hasGlobMeta(pattern string) bool {
 // globExpand runs the filesystem glob for a pattern known to contain
 // metacharacters. Stdlib filepath.Glob suffices for single-level patterns;
 // doublestar handles ** recursion and {alt} groups, which filepath cannot
-// express.
+// express. Root-anchored ** patterns go through the bounded walker below;
+// anything else keeps the legacy direct call.
 func globExpand(pattern string) ([]string, error) {
-	if strings.Contains(pattern, "**") || strings.Contains(pattern, "{") {
+	if strings.Contains(pattern, "**") {
+		if strings.HasPrefix(pattern, "/") {
+			return globExpandWalk(pattern)
+		}
+		return doublestar.FilepathGlob(pattern)
+	}
+	if strings.Contains(pattern, "{") {
 		return doublestar.FilepathGlob(pattern)
 	}
 	return filepath.Glob(pattern)
+}
+
+// expandSkipTopDirs are top-level pseudo-filesystems pruned during **
+// expansion: they hold no denylist targets (credentials/keys/ssh live on
+// persistent storage), self-links make them effectively infinite
+// (/proc/self), and in CI the shared host root dwarfs the walk. Only the
+// top level is pruned — nested same-named directories still walk.
+func isExpandSkip(path string) bool {
+	switch path {
+	case "proc", "sys", "dev":
+		return true
+	}
+	return false
+}
+
+// globExpandWalk runs a root-anchored ** pattern from the filesystem root,
+// pruning pseudo-filesystems and never following symlinks (cycle-proof: a
+// symlinked dir loop cannot hang the walk). Returned paths are absolute.
+func globExpandWalk(pattern string) ([]string, error) {
+	return globExpandWalkFS(os.DirFS("/"), pattern)
+}
+
+// globExpandWalkFS is the testable core: fsys-rooted walk with the same
+// pruning. Pattern may carry a leading "/" (stripped for the rooted FS).
+func globExpandWalkFS(fsys fs.FS, pattern string) ([]string, error) {
+	rel := strings.TrimPrefix(pattern, "/")
+	var matches []string
+	err := doublestar.GlobWalk(fsys, rel, func(path string, d fs.DirEntry) error {
+		if d.IsDir() && isExpandSkip(path) {
+			return fs.SkipDir
+		}
+		matches = append(matches, "/"+path)
+		return nil
+	}, doublestar.WithNoFollow())
+	if err != nil {
+		return nil, err
+	}
+	return matches, nil
 }
 
 // attach wires tracepoints and LSM hooks.
