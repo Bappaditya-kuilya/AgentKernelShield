@@ -163,7 +163,7 @@ func tryShebangCat() (allowed bool) {
 	if err := os.WriteFile(script, []byte(content), 0o755); err != nil {
 		return true // inconclusive — fail toward "missed"
 	}
-	defer os.Remove(script)
+	defer func() { _ = os.Remove(script) }()
 	cmd := exec.Command(script)
 	err := cmd.Run()
 	if err == nil {
@@ -177,7 +177,7 @@ func trySymlinkRead() (allowed bool) {
 	if err := os.Symlink("/etc/shadow", link); err != nil {
 		return true // inconclusive — fail toward "missed"
 	}
-	defer os.Remove(link)
+	defer func() { _ = os.Remove(link) }()
 	return tryFileRead(link)
 }
 

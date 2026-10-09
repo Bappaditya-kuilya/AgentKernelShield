@@ -3,7 +3,6 @@ package events_test
 import (
 	"net"
 	"testing"
-	"time"
 
 	"github.com/Bappaditya-kuilya/aks/internal/events"
 	"github.com/stretchr/testify/assert"
@@ -54,7 +53,6 @@ func TestEvent_Exec(t *testing.T) {
 
 func TestEvent_SSLData(t *testing.T) {
 	e := events.Event{
-		Timestamp: time.Now(),
 		PID:       4242,
 		PPID:      4241,
 		Comm:      "claude-code",

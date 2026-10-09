@@ -3,7 +3,7 @@ package switcher_test
 import (
 	"testing"
 
-	"github.com/Bappaditya-kuilya/aks/internal/switch"
+	switcher "github.com/Bappaditya-kuilya/aks/internal/switch"
 	"github.com/stretchr/testify/require"
 )
 

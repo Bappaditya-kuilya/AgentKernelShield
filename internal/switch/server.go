@@ -103,8 +103,11 @@ func routeRequest(m *Machine, applier Applier, line []byte) Response {
 		}
 		if err := applier.Apply(profile, epoch); err != nil {
 			// Roll back to baseline. Enter succeeded, so the stored
-			// call_id matches and this Exit cannot mismatch.
-			m.Exit(req.CallID)
+			// call_id matches and this Exit cannot mismatch; a rollback
+			// error still reports apply-failed either way.
+			if _, _, err := m.Exit(req.CallID); err != nil {
+				return Response{OK: false, Error: ErrTextApplyFailed}
+			}
 			return Response{OK: false, Error: ErrTextApplyFailed}
 		}
 		return Response{OK: true, Profile: profile, Epoch: epoch}
@@ -187,15 +190,15 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 	// 022 -> 0755), so chmod after bind. Startup fails if this fails —
 	// fail closed rather than serve with wrong permissions.
 	if err := os.Chmod(s.sockPath, SocketFileMode); err != nil {
-		ln.Close()
+		_ = ln.Close()
 		_ = os.Remove(s.sockPath)
 		return err
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 
 	go func() {
 		<-ctx.Done()
-		ln.Close()
+		_ = ln.Close()
 	}()
 	for {
 		conn, err := ln.Accept()
@@ -220,7 +223,7 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 // the revert is applied immediately — this is the FR-7 connection-loss path
 // (apply error here has no client to report to and is dropped with intent).
 func (s *Server) handleConn(conn net.Conn) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	m := NewMachine(s.baseline, s.known)
 	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)
