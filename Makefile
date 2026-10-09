@@ -10,7 +10,7 @@ CLANG_FORMAT    := clang-format
 GOLANGCI_LINT   := golangci-lint
 ARCH            := $(shell uname -m | sed 's/x86_64/x86/' | sed 's/aarch64/arm64/')
 
-.PHONY: all build bpf test test-unit test-integration lint lint-go lint-c fmt fmt-go fmt-c clean generate
+.PHONY: all build bpf test test-unit test-integration lint lint-go lint-c fmt fmt-go fmt-c clean help
 
 all: bpf build
 
@@ -19,7 +19,7 @@ build:
 	go build -o $(BINARY) ./cmd/aks
 
 ## bpf: compile eBPF C programs to object file (Linux only)
-bpf: $(VMLINUX_H)
+bpf: $(VMLINUX_H) bpf/probe.c bpf/lsm.c bpf/headers/common.h
 	$(CLANG) \
 		-g -O2 -target bpf -D__TARGET_ARCH_$(ARCH) \
 		-I./bpf/headers \

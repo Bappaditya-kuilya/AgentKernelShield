@@ -11,6 +11,20 @@ bpf/vmlinux.h
 
 # Test artifacts
 test/e2e/target/target
+test/e2e/bypass_target/bypass_target
+
+# Python
+__pycache__/
+*.pyc
+
+# Local agent/harness skill installs (machine-specific, reinstall via skill tool / npx)
+.agents/
+.claude/
+.opencode/
+skills-lock.json
+
+# Local-only verification notes (per-machine, never push)
+docs/VM-CHECKLIST.md
 
 # Editor
 .DS_Store
@@ -24,3 +38,4 @@ test/e2e/target/target
 *.tfstate
 *.tfstate.backup
 coder/coder-template/terraform.tfvars
+checkpoints/
