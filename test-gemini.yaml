@@ -41,7 +41,6 @@ denied_paths:
   # Other agents' credentials
   - /**/.anthropic/**
   - /**/.config/claude/**
-  - /home/kisuke/AKS/blockme.txt
 
 allowed_paths:
   - /home/**

@@ -18,10 +18,13 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
 	"os/exec"
+	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -150,6 +153,94 @@ func TestAllowedOperationsUnblocked(t *testing.T) {
 	if f != nil {
 		f.Close()
 	}
+}
+
+// TestKill9Survival verifies fail-closed pinning (Phase 5, FR-10/G3).
+//
+// Requires (VM only — never runs in containers/CI without BPF LSM):
+//   - Linux kernel 5.7+ with CONFIG_BPF_LSM=y and lsm=bpf in boot params
+//   - Root privileges (eBPF load + bpffs access)
+//   - bpffs mounted at /sys/fs/bpf; loader pins maps at /sys/fs/bpf/aks
+//   - aks.bpf.o at ../../bpf/aks.bpf.o (built by `make bpf`)
+//   - loader.Detach keeps pins (enforcement continues); loader.Release
+//     clears the pin dir (invoked via `aks stop [--release]`)
+//
+// Flow:
+//  1. Build + start `aks watch` daemon in the background
+//  2. kill -9 the daemon
+//  3. Assert /etc/shadow open is still denied (fail-closed) and pins exist
+//  4. Run `aks stop --release`, assert the pin dir is empty
+func TestKill9Survival(t *testing.T) {
+	requireRoot(t)
+
+	const pinDir = "/sys/fs/bpf/aks"
+
+	// ── Step 1: build the aks binary ─────────────────────────────────────────
+	aksBin := fmt.Sprintf("/tmp/aks_e2e_%d", os.Getpid())
+	build := exec.Command("go", "build", "-tags", "linux", "-o", aksBin, "../../cmd/aks")
+	build.Dir = "."
+	out, err := build.CombinedOutput()
+	require.NoError(t, err, "build aks: %s", out)
+	defer os.Remove(aksBin)
+	// Leave the VM clean even on failure.
+	defer func() { _ = exec.Command(aksBin, "stop", "--release").Run() }()
+
+	// ── Step 2: start `aks watch` in the background ──────────────────────────
+	daemon := exec.Command(aksBin, "watch",
+		"--profile", profilePath,
+		"--bpf-obj", bpfObjPath)
+	daemon.Dir = "."
+	stdout, err := daemon.StdoutPipe()
+	require.NoError(t, err)
+	daemon.Stderr = os.Stderr
+	require.NoError(t, daemon.Start())
+	defer func() { _ = daemon.Process.Kill() }()
+
+	// Wait until the daemon reports it is watching (or time out).
+	ready := make(chan struct{})
+	go func() {
+		defer close(ready)
+		scanner := bufio.NewScanner(stdout)
+		for scanner.Scan() {
+			if strings.Contains(scanner.Text(), "watching") {
+				return
+			}
+		}
+	}()
+	select {
+	case <-ready:
+	case <-time.After(30 * time.Second):
+		_ = daemon.Process.Kill()
+		t.Fatal("timed out waiting for aks watch to become ready")
+	}
+
+	// ── Step 3: kill -9 the daemon ───────────────────────────────────────────
+	require.NoError(t, daemon.Process.Signal(syscall.SIGKILL))
+	_ = daemon.Wait()
+	time.Sleep(500 * time.Millisecond)
+
+	// ── Step 4: enforcement must survive ─────────────────────────────────────
+	entries, err := os.ReadDir(pinDir)
+	require.NoError(t, err, "pin dir %q unreadable after kill -9", pinDir)
+	assert.NotEmpty(t, entries, "expected pins under %q after kill -9", pinDir)
+
+	_, openErr := os.Open("/etc/shadow")
+	require.Error(t, openErr, "expected /etc/shadow open denied after kill -9 (fail-closed)")
+	assert.True(t, errors.Is(openErr, syscall.EPERM) || os.IsPermission(openErr),
+		"expected EPERM opening /etc/shadow, got: %v", openErr)
+
+	// ── Step 5: full release empties the pin dir ─────────────────────────────
+	release := exec.Command(aksBin, "stop", "--release")
+	release.Dir = "."
+	relOut, err := release.CombinedOutput()
+	require.NoError(t, err, "aks stop --release: %s", relOut)
+
+	entries, err = os.ReadDir(pinDir)
+	if err != nil && os.IsNotExist(err) {
+		return // dir removed counts as empty
+	}
+	require.NoError(t, err)
+	assert.Empty(t, entries, "expected pin dir %q empty after --release", pinDir)
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
