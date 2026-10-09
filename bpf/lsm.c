@@ -139,7 +139,7 @@ static __always_inline void stash_cgroup_state(__u32 *profile_id, __u32 *epoch)
 // then carries a zeroed path. Ringbuf-full still denies and bumps the drop
 // counter instead of denying silently (spec FR-9, G3).
 static __always_inline int deny_with_path(__u32 hook, __u32 type, const char *path,
-					  __u32 profile_id, __u32 epoch)
+                                          __u32 profile_id, __u32 epoch)
 {
 	__u64 pid_tgid = bpf_get_current_pid_tgid();
 	struct task_struct *task = (struct task_struct *)bpf_get_current_task();
