@@ -60,6 +60,14 @@ func (p *Profile) validate(data []byte) error {
 		return fmt.Errorf("line %d: policy name must not be empty", line)
 	}
 
+	if len(p.EntryComm) > 15 {
+		line := mapKeyLine(root, "entry_comm")
+		if line == 0 {
+			line = 1
+		}
+		return fmt.Errorf("line %d: entry_comm %q exceeds 15 char kernel comm limit (TASK_COMM_LEN)", line, p.EntryComm)
+	}
+
 	hasNew := p.Default != "" || p.Baseline != nil || len(p.Tools) > 0 || p.Restricted != nil
 	if !hasNew {
 		return nil

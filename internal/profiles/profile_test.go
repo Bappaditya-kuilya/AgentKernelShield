@@ -203,6 +203,36 @@ entry_comm: gemini
 	assert.Equal(t, "gemini", p.EntryComm)
 }
 
+func TestEntryComm_LengthValidation(t *testing.T) {
+	// Kernel TASK_COMM_LEN is 16 including NUL: entry_comm longer than
+	// 15 chars truncates without NUL so kernel matching never hits.
+	tests := []struct {
+		name    string
+		yaml    string
+		comm    string
+		wantErr bool
+	}{
+		{name: "empty ok", yaml: "name: test\n", comm: "", wantErr: false},
+		{name: "empty string ok", yaml: "name: test\nentry_comm: \"\"\n", comm: "", wantErr: false},
+		{name: "15 ok", yaml: "name: test\nentry_comm: \"123456789012345\"\n", comm: "123456789012345", wantErr: false},
+		{name: "16 rejected", yaml: "name: test\nentry_comm: \"1234567890123456\"\n", wantErr: true},
+		{name: "long rejected", yaml: "name: test\nentry_comm: \"averylongprocessname\"\n", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, err := profiles.LoadBytes([]byte(tt.yaml))
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "line")
+				assert.Contains(t, err.Error(), "entry_comm")
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.comm, p.EntryComm)
+		})
+	}
+}
+
 func TestEntryComm_ScopesLSMEnforcement(t *testing.T) {
 	// When entry_comm is set, BPF LSM hooks check watched_pids before blocking.
 	// This ensures enforcement is scoped to the agent's process tree only —
