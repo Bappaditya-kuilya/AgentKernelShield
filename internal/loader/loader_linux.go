@@ -764,7 +764,7 @@ func pathKey(path string) [256]byte {
 
 // decodeEvent parses the raw bytes from the ring buffer into an events.Event.
 // Layout must match struct event in bpf/headers/common.h.
-// New layout (320 bytes):
+// Layout (328 bytes, append-only tail):
 //
 //	[0:8]    timestamp_ns
 //	[8:12]   pid
@@ -780,6 +780,10 @@ func pathKey(path string) [256]byte {
 //	[316:318] dest_port
 //	[318]    is_ipv6
 //	[319]    _pad2
+//	[320:324] profile_id (LSM-stamped active profile, 0 = no entry)
+//	[324:328] epoch      (tool-switch epoch, 0 = baseline)
+//
+// Legacy 320-byte inputs decode with ProfileID/Epoch left zero.
 func decodeEvent(raw []byte, bootWall time.Time) (events.Event, error) {
 	if len(raw) < 320 {
 		return events.Event{}, fmt.Errorf("raw event too short: %d bytes", len(raw))
@@ -809,6 +813,13 @@ func decodeEvent(raw []byte, bootWall time.Time) (events.Event, error) {
 		b := make([]byte, 4)
 		binary.BigEndian.PutUint32(b, destIP4)
 		e.DestIP = net.IP(b)
+	}
+
+	// Cgroup attribution tail (append-only): present on 328-byte events.
+	// Legacy 320-byte inputs leave ProfileID/Epoch zero.
+	if len(raw) >= 328 {
+		e.ProfileID = binary.LittleEndian.Uint32(raw[320:324])
+		e.Epoch = binary.LittleEndian.Uint32(raw[324:328])
 	}
 
 	return e, nil

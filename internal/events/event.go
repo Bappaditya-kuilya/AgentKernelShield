@@ -69,6 +69,12 @@ type Event struct {
 	DestIP   net.IP
 	DestPort uint16
 
+	// Cgroup attribution (Phase 6 slice D): LSM-stamped active profile
+	// and tool-switch epoch at hook time. Zero when the cgroup has no
+	// entry or the kernel sent the legacy 320-byte event.
+	ProfileID uint32
+	Epoch     uint32
+
 	// SSLData
 	Direction SSLDirection
 	Data      string

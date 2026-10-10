@@ -394,3 +394,39 @@ func TestDecodeEvent_timestampIsNotEpoch(t *testing.T) {
 	assert.WithinDuration(t, time.Now(), e.Timestamp, 24*time.Hour,
 		"timestamp must be close to now")
 }
+
+// TestDecodeEvent_cgroupAttributionTail verifies the 328-byte layout:
+// bytes [320:328] decode into ProfileID/Epoch.
+func TestDecodeEvent_cgroupAttributionTail(t *testing.T) {
+	raw := make([]byte, 328)
+	binary.LittleEndian.PutUint32(raw[8:12], 4321)
+	binary.LittleEndian.PutUint32(raw[16:20], 1111)
+	raw[20] = 0 // FileOpen
+	copy(raw[24:40], "agent\x00")
+	copy(raw[40:296], "/etc/shadow\x00")
+	// [320:324] profile_id = 7, [324:328] epoch = 42
+	binary.LittleEndian.PutUint32(raw[320:324], 7)
+	binary.LittleEndian.PutUint32(raw[324:328], 42)
+
+	e, err := decodeEvent(raw, time.Unix(0, 0))
+	require.NoError(t, err)
+	assert.Equal(t, uint32(7), e.ProfileID, "profile_id")
+	assert.Equal(t, uint32(42), e.Epoch, "epoch")
+	// Base fields still decode alongside the tail.
+	assert.Equal(t, uint32(4321), e.PID, "pid")
+	assert.Equal(t, "/etc/shadow", e.Path, "path")
+}
+
+// TestDecodeEvent_legacy320ZeroAttribution verifies backward compat:
+// legacy 320-byte events decode with ProfileID/Epoch left zero.
+func TestDecodeEvent_legacy320ZeroAttribution(t *testing.T) {
+	raw := make([]byte, 320)
+	binary.LittleEndian.PutUint32(raw[8:12], 4321)
+	copy(raw[24:40], "agent\x00")
+	copy(raw[40:296], "/etc/shadow\x00")
+
+	e, err := decodeEvent(raw, time.Unix(0, 0))
+	require.NoError(t, err)
+	assert.Equal(t, uint32(0), e.ProfileID, "legacy profile_id must be zero")
+	assert.Equal(t, uint32(0), e.Epoch, "legacy epoch must be zero")
+}
