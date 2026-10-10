@@ -49,7 +49,7 @@ const (
 //  2. Loads aks's eBPF programs with the Ollama profile
 //  3. Runs the rogue binary under aks's watch
 //  4. Asserts every escape attempt returns EPERM (exit 0 from target)
-//  5. Asserts the audit log captured all 4 BLOCK events
+//  5. Asserts the audit log captured all 6 BLOCK events
 func TestJailbreakEscape(t *testing.T) {
 	requireRoot(t)
 
@@ -74,10 +74,15 @@ func TestJailbreakEscape(t *testing.T) {
 	var auditBuf bytes.Buffer
 	log := audit.New(&auditBuf)
 
-	// Pre-block the known-bad IP so the BPF LSM hook returns EPERM synchronously.
+	// Pre-block the known-bad IPs so the BPF LSM hook returns EPERM synchronously.
 	// The production daemon does this at runtime via BlockIP after reading ring
 	// buffer events; in the e2e test we simulate that the daemon already acted.
 	require.NoError(t, l.BlockIP(net.ParseIP("8.8.8.8")))
+	// Seed the v6 denylist too: without this, the IPv6 connect would fail with
+	// ENETUNREACH (no v6 route) instead of EPERM and the vector would be
+	// indistinguishable from a miss. With the seed, blocked_ipv6 denies
+	// synchronously with EPERM, mirroring the v4 style.
+	require.NoError(t, l.BlockIP(net.ParseIP("2001:db8::1")))
 
 	// ── Step 3: drain ring buffer in background ───────────────────────────────
 	done := make(chan struct{})
@@ -115,13 +120,19 @@ func TestJailbreakEscape(t *testing.T) {
 	auditLines := parseAuditLog(t, auditBuf.Bytes())
 
 	blocked := filterByAction(auditLines, "BLOCK")
-	assert.GreaterOrEqual(t, len(blocked), 4,
-		"expected at least 4 BLOCK events (passwd, shadow, connect, exec), got %d\nfull log:\n%s",
+	assert.GreaterOrEqual(t, len(blocked), 6,
+		"expected at least 6 BLOCK events (passwd, shadow read, connect v4, exec, shadow write, connect v6), got %d\nfull log:\n%s",
 		len(blocked), auditBuf.String())
 
 	assertContainsPath(t, blocked, "/etc/passwd")
 	assertContainsPath(t, blocked, "/etc/shadow")
+	// The write vector opens the same /etc/shadow path with O_WRONLY: the
+	// kernel denies by path with no write-flag check, so both the read and
+	// the write produce BLOCK file_open events for /etc/shadow. Requiring two
+	// proves the write attempt was independently observed and denied.
+	assertContainsPathCount(t, blocked, "/etc/shadow", 2)
 	assertContainsDest(t, blocked, "8.8.8.8")
+	assertContainsDest(t, blocked, "2001:db8::1")
 	assertContainsExec(t, blocked, "/bin/bash")
 
 	t.Logf("audit log:\n%s", auditBuf.String())
@@ -288,6 +299,22 @@ func assertContainsPath(t *testing.T, entries []auditEntry, path string) {
 		}
 	}
 	t.Errorf("audit log has no BLOCK entry for path %q", path)
+}
+
+func assertContainsPathCount(t *testing.T, entries []auditEntry, path string, want int) {
+	t.Helper()
+	var got int
+	for _, e := range entries {
+		ev, _ := e["event"].(string)
+		act, _ := e["action"].(string)
+		p, _ := e["path"].(string)
+		if act == "BLOCK" && ev == "file_open" && p == path {
+			got++
+		}
+	}
+	if got < want {
+		t.Errorf("audit log has %d BLOCK entries for path %q, want at least %d", got, path, want)
+	}
 }
 
 func assertContainsDest(t *testing.T, entries []auditEntry, ip string) {

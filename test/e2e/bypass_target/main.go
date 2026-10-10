@@ -9,7 +9,7 @@
 //   0 — every vector was blocked (aks worked correctly)
 //   1 — at least one vector succeeded (aks failed to block)
 //
-// Omitted by design (see plan.md Phase 7): hardlink and memfd+fexecve
+// Omitted by design: hardlink and memfd+fexecve
 // (invisible to exact-path maps — need the (dev,ino) redesign), unix-socket
 // connect (allowed for non-IP families by design), io_uring (VM follow-up).
 

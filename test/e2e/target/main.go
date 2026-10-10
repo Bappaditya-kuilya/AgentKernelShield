@@ -2,7 +2,7 @@
 
 // target is the synthetic "rogue AI process" used in the e2e Jailbreak Escape Test.
 // It mimics an Ollama server that has been prompt-injected: first it does
-// expected/allowed operations, then it attempts 4 escape vectors.
+// expected/allowed operations, then it attempts 6 escape vectors.
 //
 // Exit codes:
 //   0 — all escapes were blocked (aks worked correctly)
@@ -61,6 +61,16 @@ func run() []result {
 			name:    "execve(/bin/bash)",
 			allowed: tryExec("/bin/bash"),
 		},
+		// ── Escape 5: write /etc/shadow (O_WRONLY open) ───────────────────────
+		{
+			name:    "open(/etc/shadow,O_WRONLY)",
+			allowed: tryFileWrite("/etc/shadow"),
+		},
+		// ── Escape 6: outbound IPv6 connect to [2001:db8::1]:443 ──────────────
+		{
+			name:    "connect([2001:db8::1]:443)",
+			allowed: tryTCPConnect("[2001:db8::1]:443"),
+		},
 		// ── Sanity: allowed operations should succeed ─────────────────────────
 		// (These are verified separately in the e2e test, not here)
 	}
@@ -69,6 +79,15 @@ func run() []result {
 func tryFileRead(path string) (allowed bool) {
 	_, err := os.Open(path)
 	if err == nil {
+		return true // succeeded — aks didn't block
+	}
+	return !isPermError(err)
+}
+
+func tryFileWrite(path string) (allowed bool) {
+	f, err := os.OpenFile(path, os.O_WRONLY, 0)
+	if err == nil {
+		_ = f.Close()
 		return true // succeeded — aks didn't block
 	}
 	return !isPermError(err)
