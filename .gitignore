@@ -39,3 +39,16 @@ docs/VM-CHECKLIST.md
 *.tfstate.backup
 coder/coder-template/terraform.tfvars
 checkpoints/
+.terraform.lock.hcl
+
+# Release artifacts
+aks-linux-*
+release/
+*.tar.gz
+
+# Test / debug artifacts
+coverage.*
+*.log
+
+# Local env
+.env

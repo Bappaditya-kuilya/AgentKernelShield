@@ -2,7 +2,7 @@
 # aks demo — AI agent jailbreak scenarios
 #
 # Usage:
-#   sudo ./demo/run_demo.sh [--profile claude-code|gemini|ollama]
+#   sudo ./demo/run_demo.sh [--profile claude-code|gemini-cli|ollama]
 #
 # This script:
 #   1. Starts aks with the chosen AI agent profile
@@ -16,9 +16,14 @@
 
 set -euo pipefail
 
-PROFILE="${1:-claude-code}"
-# Strip leading "--profile " flag if passed
-PROFILE="${PROFILE#--profile }"
+PROFILE="claude-code"
+if [ "${1:-}" = "--profile" ]; then
+  PROFILE="${2:-claude-code}"
+elif [ -n "${1:-}" ]; then
+  PROFILE="$1"
+  # Back-compat: single-quoted one-arg form "--profile X"
+  PROFILE="${PROFILE#--profile }"
+fi
 
 AKS_BIN="${AKS_BIN:-./aks}"
 if ! command -v "$AKS_BIN" &>/dev/null; then

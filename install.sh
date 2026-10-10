@@ -43,7 +43,8 @@ if [ -f "${SCRIPT_DIR}/aks" ] && [ -f "${SCRIPT_DIR}/aks.bpf.o" ]; then
   mkdir -p "${INSTALL_LIB}"
   install -m 644 "${SCRIPT_DIR}/aks.bpf.o" "${INSTALL_LIB}/aks.bpf.o"
   if [ -d "${SCRIPT_DIR}/profiles" ]; then
-    cp -r "${SCRIPT_DIR}/profiles" "${INSTALL_LIB}/profiles"
+    mkdir -p "${INSTALL_LIB}/profiles"
+    cp -r "${SCRIPT_DIR}/profiles/." "${INSTALL_LIB}/profiles/"
   fi
   info "Installed aks $(aks --version 2>/dev/null || true)"
 else
@@ -82,7 +83,8 @@ else
   mkdir -p "${INSTALL_LIB}"
   install -m 644 "${TMPDIR}/aks.bpf.o" "${INSTALL_LIB}/aks.bpf.o"
   if [ -d "${TMPDIR}/profiles" ]; then
-    cp -r "${TMPDIR}/profiles" "${INSTALL_LIB}/profiles"
+    mkdir -p "${INSTALL_LIB}/profiles"
+    cp -r "${TMPDIR}/profiles/." "${INSTALL_LIB}/profiles/"
   fi
   info "Installed aks ${TAG}"
 fi
