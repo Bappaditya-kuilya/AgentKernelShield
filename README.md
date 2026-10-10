@@ -10,7 +10,7 @@ Aks attaches to AI agent processes (Claude Code, Gemini CLI, Ollama) and enforce
 
 ## Prior art
 
-AKS builds on two prior projects (see `AKS-SPEC.md` §6). **Aks** (Bappaditya-kuilya) provides kernel-level behavioral profiles for agent processes via BPF LSM with process-tree tracking (Go + C); AKS differs by adding tool-scoped policy switching per MCP tool call, where Aks uses one static profile per agent. **AgentSight** (eunomia-bpf) provides observability linking prompts, model calls, and tool decisions to system effects (Rust, MIT); AKS differs by enforcing policy inline in the kernel, where AgentSight observes without blocking.
+AKS builds on two prior projects. **Aks** (Bappaditya-kuilya) provides kernel-level behavioral profiles for agent processes via BPF LSM with process-tree tracking (Go + C); AKS differs by adding tool-scoped policy switching per MCP tool call, where Aks uses one static profile per agent. **AgentSight** (eunomia-bpf) provides observability linking prompts, model calls, and tool decisions to system effects (Rust, MIT); AKS differs by enforcing policy inline in the kernel, where AgentSight observes without blocking.
 
 ## How it works
 
@@ -38,7 +38,7 @@ Audit log / SIEM
 - **Process lineage** (`bpf/probe.c`): tracks agent process trees by PID — follows forks and execs so child processes (`node`, `sh`, `git`) are attributed to the correct agent
 - **Profiles** (`profiles/`): YAML files defining allowed paths, networks, and commands per framework
 - **Detector** (`internal/detector`): evaluates kernel events against the loaded profile
-- **Tool switching** (`internal/switch` library, `middleware/python/aks_client.py` client): the `enter_tool`/`exit_tool` protocol over `/run/aks/aks.sock` is implemented and unit-tested, but no `aks` subcommand serves the socket yet — `aks watch` does not open it, so per-tool switching is not live. See `checklist.md` §3.
+- **Tool switching** (`internal/switch` library, `middleware/python/aks_client.py` client): the `enter_tool`/`exit_tool` protocol over `/run/aks/aks.sock` is implemented and unit-tested, but no `aks` subcommand serves the socket yet — `aks watch` does not open it, so per-tool switching is not live (see Testing below for the VM gates).
 - **Audit** (`internal/audit`): one JSON line per decision, stdout or file
 - **Web UI** (`internal/ui`): real-time event feed with BLOCK/ALLOW badges, served over SSE
 
@@ -139,6 +139,11 @@ make test-integration
 
 # Middleware unit tests (no root needed)
 # cd middleware/python && python3 -m unittest
+
+# Full enforcement gates (VM only: Ubuntu 24.04, lsm=bpf, root)
+# sudo go test -tags integration -v -count=1 ./test/e2e/
+# sudo go test -tags integration -run TestBypass ./test/e2e/
+# ./test/bench/bench.sh
 ```
 
 How to test blocking manually (no agent needed):

@@ -21,7 +21,7 @@ This project is a Linux LSM enforcement engine. In scope:
 
 - Enforcement bypass: prompt-injected commands, exfiltration, or file access
   that the loaded policy should deny but does not (threats T1–T11 in
-  `AKS-SPEC.md` §13: exec allowlist, network allowlist, `deny_files`,
+  `docs/threat-model.md`: exec allowlist, network allowlist, `deny_files`,
   read-only mode, cgroup escape, fail-open paths, memfd/symlink/TOCTOU
   vectors, ring-buffer loss without counting).
 - Policy validation flaws: a policy that loads but enforces something
@@ -38,7 +38,7 @@ Out of scope (documented limits, not vulnerabilities):
   (report those upstream).
 - The deliberately documented gaps: unpinned links after `kill -9`,
   hardlink/memfd invisibility to exact-path maps, unix-socket allow,
-  io_uring follow-up — these are tracked in `plan.md`, not reports.
+  io_uring follow-up — these are tracked in `docs/threat-model.md`, not reports.
 
 ## Disclosure
 
@@ -48,8 +48,8 @@ you ask to stay anonymous. There is no paid bounty.
 
 ## What happens after you report
 
-1. We confirm receipt and reproduce on the enforcement VM checklist
-   (`checklist.md`).
+1. We confirm receipt and reproduce on the enforcement VM (gates in
+   README Testing).
 2. Fix lands on `main` with a regression test; backported to the supported
    release if affected.
 3. Advisory published with CVE request where appropriate; credit as agreed.
