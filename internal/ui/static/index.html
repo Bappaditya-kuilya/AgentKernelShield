@@ -10,9 +10,7 @@
     :root {
       --bg:        #08090A; /* neutral */
       --surface:   #0F1011; /* surface */
-      --raised:    #0F1011; /* surface */
       --border:    #ffffff14; /* border */
-      --outline:   #ffffff1a; /* outline */
       --text:      #F7F8F8; /* on-surface */
       --muted:     #A2A7B2; /* muted */
       --red:       #FF5A5F; /* error */
@@ -20,7 +18,6 @@
       --accent:    #7170FF; /* primary */
       --warn:      #FFCC00; /* warning */
       --bad:       #FF5A5F; /* error */
-      --radius:    9px;     /* rounded.lg */
       --mono:      'Berkeley Mono', ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
       font-family: -apple-system, 'Inter', 'Inter Variable', 'Segoe UI', system-ui, sans-serif;
     }
@@ -335,8 +332,6 @@
       border-bottom: 1px solid var(--border);
     }
 
-    .blocked-proc.flash { animation: none; }
-
     .blocked-proc-header {
       display: flex;
       align-items: baseline;
@@ -375,10 +370,6 @@
       font-size: 10px;
       font-weight: 700;
       letter-spacing: 0.5px;
-    }
-
-    .blocked-proc-hint {
-      display: none;
     }
 
     .blocked-events {
@@ -432,7 +423,7 @@
 <div class="tab-bar">
   <button class="tab-btn active" data-tab="log">Log</button>
   <button class="tab-btn" data-tab="blocked" id="blockedTabBtn">Blocked</button>
-  <button class="tab-btn" data-tab="agent" id="agentTabBtn">Agent</button>
+  <button class="tab-btn" data-tab="agent">Agent</button>
 </div>
 
 <!-- ── LOG TAB ── -->
@@ -485,7 +476,7 @@
 
 <!-- ── AGENT TAB ── -->
 <div class="tab-panel" id="panel-agent">
-  <div class="agent-task" id="agentTask">
+  <div class="agent-task">
     <span class="agent-task-label">task</span>
     <span id="agentTaskText">— waiting for agent activity —</span>
     <span class="agent-replay-badge" id="agentReplayBadge" style="display:none">REPLAY</span>
@@ -562,7 +553,9 @@
     return String(s)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   function typeBadge(evt) {
@@ -572,7 +565,7 @@
       net_connect: ['Net',  'badge-net'],
       ssl_data:    ['SSL',  'badge-ssl'],
     };
-    const [label, cls] = map[evt.event] || [evt.event, ''];
+    const [label, cls] = map[evt.event] || [escHtml(evt.event), ''];
     return `<span class="badge ${cls}">${label}</span>`;
   }
 
@@ -712,7 +705,6 @@
           <span class="blocked-proc-comm">${escHtml(proc.comm)}</span>
           ${ppidStr}
           <span class="blocked-proc-badge">${proc.blockedEvents.length} Blocked</span>
-          <span class="blocked-proc-hint">click to filter log</span>
         </div>
         <div class="blocked-events">
           ${proc.blockedEvents.map(evt => `
@@ -832,11 +824,11 @@
     const groups = kids;
     box.innerHTML = '';
     // Root card: the agent process itself
-    box.appendChild(agentCard('agent · ' + root.comm, root, -1));
-    groups.forEach((p, i) => box.appendChild(agentCard(toolNameFor(p.pid, i + 1), p, p.pid)));
+    box.appendChild(agentCard('agent · ' + root.comm, root));
+    groups.forEach((p, i) => box.appendChild(agentCard(toolNameFor(p.pid, i + 1), p)));
   }
 
-  function agentCard(name, proc, filterPid) {
+  function agentCard(name, proc) {
     const evts = proc.events;
     const blocks = evts.filter(e => e.action === 'BLOCK');
     const first = evts[0], last = evts[evts.length - 1];
