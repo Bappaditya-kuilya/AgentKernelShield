@@ -132,13 +132,6 @@ func (m *Machine) Snapshot() (tool, profile string, epoch uint64) {
 	return m.activeTool, m.activeProfile, m.epoch
 }
 
-// Baseline returns the profile this machine reverts to.
-func (m *Machine) Baseline() string {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.baseline
-}
-
 // Epoch returns the current epoch without changing state.
 func (m *Machine) Epoch() uint64 {
 	m.mu.Lock()
