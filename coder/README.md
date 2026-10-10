@@ -42,10 +42,10 @@ sudo ./demo/run_demo.sh --profile claude-code
 sudo ./demo/run_demo.sh --profile gemini-cli
 ```
 
-Scenarios:
-- **Credential theft** — `open(/etc/shadow)`, `~/.ssh/id_rsa`, `~/.aws/credentials` → BLOCK
-- **Shell escape** — `execve(/bin/bash)`, `execve(/usr/bin/python3)` → BLOCK
-- **Network exfiltration** — TCP to attacker IPs → logged, blocked after `BlockIP`
+Scenarios (profile-specific — `claude-code`/`gemini-cli` are `default_policy: allow`):
+- **Credential theft** — `open(/etc/shadow)`, `~/.ssh/id_rsa`, `~/.aws/credentials` → BLOCK (in `denied_paths` for all three profiles)
+- **Shell escape** — BLOCK only under `ollama` (shells in `denied_paths`); under `claude-code`/`gemini-cli` `execve(/bin/bash)` is not denylisted and `python3` is allowlisted → ALLOW + logged
+- **Network exfiltration** — first connection ALLOW + logged under `claude-code`/`gemini-cli` (`0.0.0.0/0` allowed); BLOCK only after `BlockIP` adds the IP, or under `ollama` (deny-default)
 
 ## Running real agents under aks
 

@@ -126,11 +126,11 @@ Has BTF + cgroup2 — enough for unit tests only, once a Go toolchain exists.
 ## Phase 5. Fail-closed pinning (VM, 5-8h, highest uncertainty)
 - [x] `CollectionOptions{Maps:{PinPath:/sys/fs/bpf/aks}}` + `EEXIST` reuse via `MapReplacements`
   (`loader:loadObjects`/`loadWithPinnedReuse`); `PinByName` required for cilium/ebpf v0.21.0 — code written, uncompiled here
-- [x] `Detach()` (keep pins) vs `Release()`/`UnpinAll()` (clear `/sys/fs/bpf/aks`); `Close()` aliases `Detach`;
+- [x] `Detach()` (keep pins) vs `UnpinAll()` (clear `/sys/fs/bpf/aks`); `Close()` aliases `Detach`;
   stubs added for non-Linux — code written, uncompiled here
 - [x] `aks stop` (pins stay) + `aks stop --release` (unpin); plain stop is a no-op reporting the invariant,
-  `--release` calls package-level `loader.UnpinAll()` (fixed 2026-10-09: `Detach`/`Release` are Loader methods,
-  not package funcs — the first `stop` draft called non-existent package funcs)
+  `--release` calls package-level `loader.UnpinAll()` (fixed 2026-10-09: `Detach` is a Loader method,
+  not a package func — the first `stop` draft called non-existent package funcs)
 - [x] `populateMaps` idempotency contract documented (all `Put`/UpdateAny; stale `blocked_ipv4` preserved fail-closed)
 - [x] `TestKill9Survival` in `test/e2e` (kill -9 → pins exist + `/etc/shadow` EPERM → `--release` → empty) — written, VM-only
 - [ ] Checkpoint (VM): survival test green + `ls /sys/fs/bpf/aks` non-empty after kill, empty after release
@@ -198,8 +198,7 @@ Has BTF + cgroup2 — enough for unit tests only, once a Go toolchain exists.
 - Phase 1 (local, 1h) → 2 → 3 → 4 (VM, ~7h) → 5 (VM, 5-8h) → 6 (VM, 1w) → 7 (1w).
 - Cut order if time runs short: 7-docs polish → 6-middleware extras → 4-full-option (take minimal deny).
   Never cut: deny-path tests, threat-model updates, prior-art credit.
-- Rollback per phase: `git revert` + `aks stop --release` + `rm -rf /sys/fs/bpf/aks`; host recovery
-  via GRUB entry without `lsm=bpf`.
+- Rollback per phase: `git revert` + steps in `docs/rollback.md` (single source of truth; do not restate stop/release or GRUB steps here).
 
 ---
 ## Appendix: prior review (vigil → aks, kept verbatim history)
@@ -274,7 +273,7 @@ Has BTF + cgroup2 — enough for unit tests only, once a Go toolchain exists.
 - Verify: in-cgroup blocked / out-of-cgroup allowed, old e2e still passes with empty map, `bpftool map dump` ID matches `/proc/self/cgroup`.
 
 ### Fix 2 — pinning fail-closed (5–8h, highest uncertainty)
-- Touch: `loader_linux.go:89` → `CollectionOptions{Maps:{PinPath:/sys/fs/bpf/aks}}` + `EEXIST` reuse, split `Detach()` vs `Release()/UnpinAll()`, `main.go:24-48` add `stop [--release]`, `loader_stub.go` stub, `e2e_test.go:66-68` crash test.
+- Touch: `loader_linux.go:89` → `CollectionOptions{Maps:{PinPath:/sys/fs/bpf/aks}}` + `EEXIST` reuse, split `Detach()` vs `UnpinAll()`, `main.go:24-48` add `stop [--release]`, `loader_stub.go` stub, `e2e_test.go:66-68` crash test.
 - Risks: tracepoint link pin asymmetric (likely maps-pinned + links-reattached — decide explicitly), stale `blocked_ipv4/watched_pids` on reuse needs idempotent `populateMaps`, `/sys/fs/bpf` unmounted in CI, `closeOnce/doneCh/wg` race on double close.
 - Verify: `watch &; kill -9; watch` still denies `/etc/shadow`, `stop` keeps pins, `stop --release` empties `/sys/fs/bpf/aks`.
 
@@ -286,7 +285,7 @@ Has BTF + cgroup2 — enough for unit tests only, once a Go toolchain exists.
 ## 6. Totals + sequence
 - Migration **2–3h** → must-build **11–18h** → gaps (bypass+bench+docs) **1–2w** if chasing full spec.
 - Order: migration → `go 1.24` CI bump → Fix 3 → Fix 1 → Fix 2 → e2e+verifier log → docs/release hardening.
-- Rollback: fresh repo, so `git log` + `stop --release` + `rm -rf /sys/fs/bpf/aks`, recovery GRUB entry without `lsm=bpf`.
+- Rollback: fresh repo, so `git log` + steps in `docs/rollback.md` (single source of truth).
 
 ---
 *Next: approve this plan, then `writing-plans` breaks the approved slice into executable steps. No implementation until you say go.*

@@ -17,7 +17,7 @@
 - UI: Agent tab (task timeline + process tree over live SSE) with `?demo=1`
   replay of a scripted Gemini session (`demo-session.json`, shape-tested).
 - Dead-code pass (unit-verified here): removed `Verdict.String`,
-  `Event.String` (+tests), `Loader.Release` (linux+stub), UI `state.events`
+  `Event.String` (+tests), unshipped `Loader.Release` helper (never committed), UI `state.events`
   store + `tableContainer` id, Makefile `generate` PHONY, `MAX_ARGV_LEN`,
   stale personal path in `test-gemini.yaml` (README recipe now uses denied
   `/tmp/secret.txt`). Kept: `SSLReadArgs` (FD lifecycle), `Version`
@@ -25,6 +25,4 @@
   paddings (ABI/reserved). C edits unverified (no clang here).
 
 ## Rollback
-- Release: `aks stop --release` (unpins maps, unloads LSM).
-- Stuck pin: `rm -rf /sys/fs/bpf/aks` then reload.
-- No-boot: pick recovery GRUB entry without `lsm=bpf`.
+See `docs/rollback.md` (single source of truth for stop/release, stale pins, and GRUB recovery).

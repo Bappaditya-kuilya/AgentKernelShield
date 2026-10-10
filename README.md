@@ -8,6 +8,10 @@ eBPF-based runtime security for AI inference workloads.
 
 Aks attaches to AI agent processes (Claude Code, Gemini CLI, Ollama) and enforces a behavioral profile at the kernel level, blocking unexpected file access, network connections, and subprocess spawning before they complete. No code changes required in the target process.
 
+## Prior art
+
+AKS builds on two prior projects (see `AKS-SPEC.md` §6). **Aks** (Bappaditya-kuilya) provides kernel-level behavioral profiles for agent processes via BPF LSM with process-tree tracking (Go + C); AKS differs by adding tool-scoped policy switching per MCP tool call, where Aks uses one static profile per agent. **AgentSight** (eunomia-bpf) provides observability linking prompts, model calls, and tool decisions to system effects (Rust, MIT); AKS differs by enforcing policy inline in the kernel, where AgentSight observes without blocking.
+
 ## How it works
 
 ```mermaid
@@ -34,7 +38,7 @@ Audit log / SIEM
 - **Process lineage** (`bpf/probe.c`): tracks agent process trees by PID — follows forks and execs so child processes (`node`, `sh`, `git`) are attributed to the correct agent
 - **Profiles** (`profiles/`): YAML files defining allowed paths, networks, and commands per framework
 - **Detector** (`internal/detector`): evaluates kernel events against the loaded profile
-- **Tool switching** (`internal/switch`, `middleware/python/aks_client.py`): per-tool profiles via `enter_tool`/`exit_tool` over `/run/aks/aks.sock` (VM-gated)
+- **Tool switching** (`internal/switch` library, `middleware/python/aks_client.py` client): the `enter_tool`/`exit_tool` protocol over `/run/aks/aks.sock` is implemented and unit-tested, but no `aks` subcommand serves the socket yet — `aks watch` does not open it, so per-tool switching is not live. See `checklist.md` §3.
 - **Audit** (`internal/audit`): one JSON line per decision, stdout or file
 - **Web UI** (`internal/ui`): real-time event feed with BLOCK/ALLOW badges, served over SSE
 
@@ -80,7 +84,8 @@ aks profile list
 # Validate a policy file (strict schema, line+reason errors)
 aks policy check ./profiles/ollama.yaml
 
-# Stop enforcement (pins stay, fail-closed); --release also unpins
+# Stop: plain `stop` keeps pins (fail-closed, enforcement continues); `--release` unpins maps.
+# Killing `aks watch` detaches links instead — fail-OPEN until link pinning lands. See docs/rollback.md.
 sudo aks stop [--release]
 ```
 
@@ -117,8 +122,6 @@ entry_comm: gemini   # root process to track
 | `ollama` | `ollama` | Available |
 | `claude-code` | `claude` | Available |
 | `gemini-cli` | `gemini` | Available |
-| `vllm` | `vllm` | Coming soon |
-| `llamacpp` | `server` | Coming soon |
 
 ## Testing
 
