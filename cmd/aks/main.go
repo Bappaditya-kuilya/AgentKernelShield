@@ -110,12 +110,12 @@ var profileCmd = &cobra.Command{
 
 var stopCmd = &cobra.Command{
 	Use:   "stop",
-	Short: "Detach the aks daemon (pins stay, enforcement continues)",
-	Long: `Detach the aks daemon without dropping enforcement.
+	Short: "Detach the aks daemon (map pins stay)",
+	Long: `Detach bookkeeping without dropping map pins.
 
-Pins under /sys/fs/bpf/aks are kept, so the LSM programs keep
-enforcing the last policy. Use --release for a full release
-(detach and unpin /sys/fs/bpf/aks).`,
+Pins under /sys/fs/bpf/aks are kept, but enforcement stops with the
+daemon (links are in-memory only: fail-OPEN until link pinning lands).
+Use --release for a full release (detach and unpin /sys/fs/bpf/aks).`,
 	RunE: runStop,
 }
 
@@ -136,10 +136,10 @@ func runStop(cmd *cobra.Command, _ []string) error {
 		fmt.Fprintln(cmd.OutOrStdout(), "aks: released pins under /sys/fs/bpf/aks")
 		return nil
 	}
-	// Plain stop keeps pins by design (fail-closed): there is no daemon
-	// handle to detach here, and killing the daemon leaves enforcement
-	// running, so stopping is a no-op that reports the invariant.
-	fmt.Fprintln(cmd.OutOrStdout(), "aks: detached (pins stay, enforcement continues)")
+	// Plain stop keeps map pins by design, but enforcement does NOT continue:
+	// links live in memory only, so killing the daemon detaches them
+	// (fail-OPEN until link pinning lands). This no-op reports the invariant.
+	fmt.Fprintln(cmd.OutOrStdout(), "aks: detached (map pins stay; enforcement stops with the daemon)")
 	return nil
 }
 
