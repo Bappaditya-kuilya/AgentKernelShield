@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">AgentKernelShield emblem</title>
+  <desc id="desc">A geometric shield around stacked kernel layers and a controlled execution path. Text-free vector artwork.</desc>
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="74%">
+      <stop offset="0" stop-color="#071516"/>
+      <stop offset="0.52" stop-color="#03090b"/>
+      <stop offset="1" stop-color="#010304"/>
+    </radialGradient>
+    <linearGradient id="metal" x1="0" y1="0" x2="1" y2="0.9">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.36" stop-color="#dce2e5"/>
+      <stop offset="0.72" stop-color="#8f9ba4"/>
+      <stop offset="1" stop-color="#e8edef"/>
+    </linearGradient>
+    <linearGradient id="metalRight" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f7fafb"/>
+      <stop offset="0.45" stop-color="#b8c1c7"/>
+      <stop offset="1" stop-color="#6d7a84"/>
+    </linearGradient>
+    <linearGradient id="metalShade" x1="0" y1="0" x2="1" y2="0.1">
+      <stop offset="0" stop-color="#19272d"/>
+      <stop offset="0.45" stop-color="#36464d"/>
+      <stop offset="1" stop-color="#10191e"/>
+    </linearGradient>
+    <linearGradient id="tealTop" x1="0" y1="0" x2="0.82" y2="1">
+      <stop offset="0" stop-color="#8cfff0"/>
+      <stop offset="0.3" stop-color="#3ee8d3"/>
+      <stop offset="0.72" stop-color="#0ba991"/>
+      <stop offset="1" stop-color="#087767"/>
+    </linearGradient>
+    <linearGradient id="tealFace" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#29d7c0"/>
+      <stop offset="0.46" stop-color="#087f72"/>
+      <stop offset="1" stop-color="#042e32"/>
+    </linearGradient>
+    <linearGradient id="tealLane" x1="0" y1="0" x2="1" y2="0.8">
+      <stop offset="0" stop-color="#68ffec"/>
+      <stop offset="0.4" stop-color="#20d8c1"/>
+      <stop offset="1" stop-color="#08796f"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff2b0"/>
+      <stop offset="0.45" stop-color="#ffc94d"/>
+      <stop offset="1" stop-color="#bc7619"/>
+    </linearGradient>
+    <filter id="softTeal" x="-35%" y="-35%" width="170%" height="170%">
+      <feGaussianBlur stdDeviation="7" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="softGold" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="9" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <g id="upperShell">
+      <path d="M504 96 166 278 166 441 239 500 270 471 257 440 257 322 402 247 504 194Z" fill="url(#metal)"/>
+      <path d="M504 195 402 248 268 321 268 439 286 470 258 452 250 435 250 316 397 239 504 181Z" fill="#25343a"/>
+      <path d="M402 248 268 321 268 439 286 470 258 452 250 435 250 316 397 239Z" fill="url(#metalShade)"/>
+      <path d="M268 322 401 253 401 262 278 327 278 441 298 460 286 470 258 452 250 435 250 316Z" fill="#10baa8" opacity=".5"/>
+    </g>
+    <g id="lowerShell">
+      <path d="M166 506 235 540 281 605 337 653 337 728 504 850 504 895 321 790 166 631Z" fill="url(#metalRight)"/>
+      <path d="M166 506 235 540 281 605 337 653 337 674 272 619 228 560 166 530Z" fill="#f5f7f7"/>
+      <path d="M337 653 355 666 355 735 504 848 504 871 336 747Z" fill="#19272d"/>
+      <path d="M355 735 504 848 504 871 336 747Z" fill="url(#metalShade)"/>
+    </g>
+    <g id="innerRail">
+      <path d="M310 283 350 320 350 491 407 524 420 544 402 565 379 590 379 651 347 622 347 576 302 547 302 376Z" fill="url(#metal)"/>
+      <path d="M310 283 350 320 350 491 407 524 420 544 402 565 392 552 393 535 339 504 339 325Z" fill="#f6f9fa"/>
+      <path d="M302 376 313 384 313 540 359 569 359 613 347 622 347 576 302 547Z" fill="#15242a"/>
+    </g>
+  </defs>
+
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <ellipse cx="512" cy="490" rx="360" ry="390" fill="#00bfa8" opacity=".035"/>
+
+  <!-- The broken crown and lower shell deliberately leave small openings at the sides. -->
+  <g stroke-linejoin="round">
+    <use href="#upperShell"/>
+    <use href="#upperShell" transform="translate(1024 0) scale(-1 1)"/>
+    <use href="#lowerShell"/>
+    <use href="#lowerShell" transform="translate(1024 0) scale(-1 1)"/>
+  </g>
+
+  <!-- Dark inset gives the crest a solid, machined edge. -->
+  <path d="M504 194 401 248 269 322 269 440 307 485 279 504 240 468 240 310 504 170Z" fill="#071014" opacity=".96"/>
+  <path d="M520 194 623 248 755 322 755 440 717 485 745 504 784 468 784 310 520 170Z" fill="#071014" opacity=".96"/>
+  <path d="M504 194 401 248 269 322 269 440 299 467 281 438 281 329 407 261 504 211Z" fill="#13bba9" opacity=".28"/>
+  <path d="M520 194 623 248 755 322 755 440 725 467 743 438 743 329 617 261 520 211Z" fill="#13bba9" opacity=".28"/>
+
+  <!-- Inner angular rails, mirrored precisely for a strong silhouette. -->
+  <use href="#innerRail"/>
+  <use href="#innerRail" transform="translate(1024 0) scale(-1 1)"/>
+
+  <!-- Lower inner armor facets. -->
+  <path d="M347 622 379 651 379 685 412 714 412 758 389 782 355 750 355 687 337 673Z" fill="#0c1b20" stroke="#243941" stroke-width="2"/>
+  <path d="M677 622 645 651 645 685 612 714 612 758 635 782 669 750 669 687 687 673Z" fill="#0c1b20" stroke="#243941" stroke-width="2"/>
+  <path d="M355 683 379 699 379 747 411 772 411 790 355 751Z" fill="url(#metalShade)"/>
+  <path d="M669 683 645 699 645 747 613 772 613 790 669 751Z" fill="url(#metalShade)"/>
+
+  <!-- Bottom point of the shield. -->
+  <path d="M338 725 504 849 504 895 321 790Z" fill="url(#metal)"/>
+  <path d="M686 725 520 849 520 895 703 790Z" fill="url(#metalRight)"/>
+  <path d="M338 725 504 849 504 870 355 758Z" fill="#132228"/>
+  <path d="M686 725 520 849 520 870 669 758Z" fill="#132228"/>
+
+  <!-- Lower enforcement lanes. These are broad vector ribbons, not raster effects. -->
+  <g filter="url(#softTeal)" opacity=".45">
+    <path d="M464 565 464 638 359 748 359 773 464 816 476 791 401 761 492 672 492 570Z" fill="#12e7cf"/>
+    <path d="M560 565 560 638 665 748 665 773 560 816 548 791 623 761 532 672 532 570Z" fill="#12e7cf"/>
+  </g>
+  <path d="M464 571 464 640 359 749 359 766 464 808 475 787 401 758 491 670 491 574Z" fill="url(#tealLane)"/>
+  <path d="M560 571 560 640 665 749 665 766 560 808 549 787 623 758 533 670 533 574Z" fill="url(#tealLane)"/>
+  <path d="M464 571 464 640 359 749 359 766 371 771 371 754 476 649 476 571Z" fill="#a0fff1" opacity=".68"/>
+  <path d="M560 571 560 640 665 749 665 766 653 771 653 754 548 649 548 571Z" fill="#a0fff1" opacity=".68"/>
+  <path d="M495 574 495 670 464 714 464 789 492 810 492 824 450 797 450 737 479 683 479 574Z" fill="#071518"/>
+  <path d="M529 574 529 670 560 714 560 789 532 810 532 824 574 797 574 737 545 683 545 574Z" fill="#071518"/>
+  <path d="M495 575 495 670 479 694 479 789 492 805" fill="none" stroke="#24e5cf" stroke-width="3" stroke-linecap="round" opacity=".8"/>
+  <path d="M529 575 529 670 545 694 545 789 532 805" fill="none" stroke="#24e5cf" stroke-width="3" stroke-linecap="round" opacity=".8"/>
+
+  <!-- Stacked kernel layers: lower plate first, upper plate in front. -->
+  <g stroke-linejoin="round">
+    <path d="M512 399 690 476 690 506 512 590 334 506 334 476Z" fill="#07191b" stroke="#087b70" stroke-width="2"/>
+    <path d="M334 476 512 558 690 476 690 506 512 590 334 506Z" fill="url(#tealFace)"/>
+    <path d="M512 399 690 476 512 558 334 476Z" fill="url(#tealTop)" stroke="#89fff0" stroke-width="3"/>
+    <path d="M512 414 654 476 512 541 370 476Z" fill="#26cfbb" opacity=".24"/>
+
+    <path d="M512 293 646 352 646 384 512 450 378 384 378 352Z" fill="#092326" stroke="#0a8e82" stroke-width="2"/>
+    <path d="M378 352 512 415 646 352 646 384 512 450 378 384Z" fill="url(#tealFace)"/>
+    <path d="M512 293 646 352 512 415 378 352Z" fill="url(#tealTop)" stroke="#b0fff4" stroke-width="3"/>
+    <path d="M512 307 623 352 512 400 401 352Z" fill="#a0fff1" opacity=".18"/>
+    <path d="M512 294V414" stroke="#d6fff8" stroke-width="2" opacity=".72"/>
+  </g>
+
+  <!-- Gold decision core at the policy gate. -->
+  <path d="M512 530 565 558 512 588 459 558Z" fill="#ffbd3c" opacity=".18" filter="url(#softGold)"/>
+  <path d="M512 536 553 558 512 581 471 558Z" fill="url(#gold)" stroke="#fff0ad" stroke-width="2.5"/>
+  <path d="M512 541 541 558 512 574 483 558Z" fill="#fff0a6" opacity=".45"/>
+  <path d="M512 536V581" stroke="#fff6cb" stroke-width="1.5" opacity=".8"/>
+
+  <!-- Small segmented vertical trace makes the execution path legible at reduced sizes. -->
+  <g fill="#7cfff0">
+    <rect x="508" y="224" width="8" height="8" rx="1" opacity=".82"/>
+    <rect x="508" y="245" width="8" height="8" rx="1" opacity=".65"/>
+    <rect x="508" y="266" width="8" height="8" rx="1" opacity=".82"/>
+    <rect x="508" y="600" width="8" height="10" rx="1" opacity=".9"/>
+    <rect x="506" y="626" width="12" height="12" rx="1" opacity=".94"/>
+    <rect x="506" y="655" width="12" height="12" rx="1" opacity=".94"/>
+    <rect x="505" y="684" width="14" height="14" rx="1" opacity=".96"/>
+    <rect x="505" y="716" width="14" height="14" rx="1" opacity=".96"/>
+    <rect x="504" y="750" width="16" height="16" rx="1" opacity=".98"/>
+    <rect x="504" y="786" width="16" height="16" rx="1" opacity=".9"/>
+  </g>
+  <g fill="#041316">
+    <rect x="510" y="228" width="4" height="4"/>
+    <rect x="510" y="249" width="4" height="4"/>
+    <rect x="510" y="270" width="4" height="4"/>
+    <rect x="509" y="629" width="6" height="6"/>
+    <rect x="509" y="658" width="6" height="6"/>
+    <rect x="509" y="687" width="6" height="6"/>
+    <rect x="509" y="719" width="6" height="6"/>
+    <rect x="509" y="754" width="6" height="6"/>
+    <rect x="509" y="790" width="6" height="6"/>
+  </g>
+
+  <!-- Restrained edge glints. -->
+  <path d="M504 96 166 278 166 441" fill="none" stroke="#ffffff" stroke-width="2" opacity=".75"/>
+  <path d="M520 96 858 278 858 441" fill="none" stroke="#ffffff" stroke-width="2" opacity=".75"/>
+  <path d="M504 895 321 790" fill="none" stroke="#f5f8f9" stroke-width="2" opacity=".7"/>
+  <path d="M520 895 703 790" fill="none" stroke="#f5f8f9" stroke-width="2" opacity=".7"/>
+</svg>

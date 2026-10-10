@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/logo.svg" width="345" alt="aks logo"/>
+  <img src="assets/agentkernelshield-logo.svg" width="220" alt="AgentKernelShield emblem"/>
 </div>
 
 # aks
